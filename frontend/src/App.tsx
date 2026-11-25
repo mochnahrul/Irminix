@@ -5,6 +5,7 @@ import { CharacterBuildDetailView } from "@/components/build/CharacterBuildDetai
 import { CharacterCodexView } from "@/components/characters/CharacterCodexView";
 import { type ActiveTab } from "@/components/common/Navbar";
 import { AppShell } from "@/components/layout/AppShell";
+import { TeyvatMapView } from "@/components/map/TeyvatMapView";
 import { UidShowcaseView } from "@/components/showcase/UidShowcaseView";
 import { SessionProvider, useSession } from "@/contexts/SessionContext";
 import { fetchCharacters } from "@/services/api";
@@ -77,6 +78,8 @@ function IrminsulAppContent() {
           initialRole={advisorTarget?.role}
         />
       )}
+
+      {activeTab === "map" && <TeyvatMapView />}
     </AppShell>
   );
 }

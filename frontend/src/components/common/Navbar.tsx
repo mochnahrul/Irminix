@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
-import { BookOpen, LogOut, RefreshCw, Sparkles, UserCheck } from "lucide-react";
+import { BookOpen, LogOut, Map as MapIcon, RefreshCw, Sparkles, UserCheck } from "lucide-react";
 import { IrminsulLogo } from "@/components/common/IrminsulLogo";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
 
-export type ActiveTab = "codex" | "showcase" | "advisor";
+export type ActiveTab = "codex" | "showcase" | "advisor" | "map";
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -20,6 +20,7 @@ export function Navbar({ activeTab, onTabChange, onResetCharacter }: NavbarProps
     { id: "codex", label: "Character Builds", shortLabel: "Builds", icon: BookOpen },
     { id: "showcase", label: "My Profile", shortLabel: "Profile", icon: UserCheck },
     { id: "advisor", label: "Build Advisor", shortLabel: "Advisor", icon: Sparkles },
+    { id: "map", label: "Teyvat Map", shortLabel: "Map", icon: MapIcon },
   ];
 
   const handleSelect = (tab: ActiveTab) => {
@@ -136,7 +137,7 @@ export function Navbar({ activeTab, onTabChange, onResetCharacter }: NavbarProps
         </div>
 
         {/* Mobile Nav Row */}
-        <nav className="grid grid-cols-3 gap-1 pb-2.5 md:hidden">
+        <nav className="grid grid-cols-4 gap-1 pb-2.5 md:hidden">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = activeTab === item.id;

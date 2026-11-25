@@ -4,6 +4,9 @@ import type {
   BuildAdvisorResponse,
   CharacterDetail,
   CharacterSummary,
+  MapConfigResponse,
+  MapPointDetail,
+  MapPointsResponse,
   PlayerProfile,
 } from "@/types/genshin";
 
@@ -125,4 +128,40 @@ export async function fetchAchievementGuide(payload: {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function fetchMapConfig(mapId = 2): Promise<MapConfigResponse> {
+  const key = `map:config:${mapId}`;
+  const cached = getCached<MapConfigResponse>(key);
+  if (cached) return cached;
+
+  const data = await request<MapConfigResponse>(`/api/map/config?map_id=${mapId}`);
+  setCached(key, data);
+  return data;
+}
+
+export async function fetchMapPoints(
+  mapId: number,
+  labelIds: number[]
+): Promise<MapPointsResponse> {
+  if (labelIds.length === 0) return { mapId, points: [] };
+  const idsParam = labelIds.join(",");
+  return request<MapPointsResponse>(
+    `/api/map/points?map_id=${mapId}&label_ids=${encodeURIComponent(idsParam)}`
+  );
+}
+
+export async function fetchMapPointDetail(
+  pointId: number,
+  mapId = 2
+): Promise<MapPointDetail> {
+  const key = `map:point:${mapId}:${pointId}`;
+  const cached = getCached<MapPointDetail>(key);
+  if (cached) return cached;
+
+  const data = await request<MapPointDetail>(
+    `/api/map/point/${pointId}?map_id=${mapId}`
+  );
+  setCached(key, data);
+  return data;
 }

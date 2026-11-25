@@ -157,3 +157,50 @@ export interface AchievementGuideResponse {
   tip: string;
   poweredBy: string;
 }
+
+export interface MapLabelNode {
+  id: number;
+  name: string;
+  icon: string;
+  count: number;
+  children: MapLabelNode[];
+}
+
+export interface MapAnchor {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+}
+
+export interface MapConfigResponse {
+  mapId: number;
+  name: string;
+  origin: number[];
+  totalSize: number[];
+  slices: string[][];
+  categories: MapLabelNode[];
+  anchors?: MapAnchor[];
+  totalPins: number;
+}
+
+export interface MapPoint {
+  id: number;
+  labelId: number;
+  x: number;
+  y: number;
+  zLevel?: number;
+}
+
+export interface MapPointsResponse {
+  mapId: number;
+  points: MapPoint[];
+}
+
+export interface MapPointDetail {
+  id: number;
+  labelId: number;
+  content: string;
+  img: string;
+  authorName: string;
+}

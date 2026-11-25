@@ -8,6 +8,7 @@ from app.schemas.achievement import (
 )
 from app.schemas.advisor import BuildAdvisorRequest, BuildAdvisorResponse
 from app.schemas.character import CharacterDetail, CharacterSummary
+from app.schemas.map import MapConfigResponse, MapPointDetail, MapPointsResponse
 from app.services.achievement_service import (
     generate_achievement_guide,
     get_achievement_catalog,
@@ -15,6 +16,11 @@ from app.services.achievement_service import (
 from app.services.ai_service import generate_build_advice
 from app.services.catalog_service import get_all_characters, get_character_detail, slugify_name
 from app.services.enka_service import fetch_player_showcase
+from app.services.map_service import (
+    get_map_config,
+    get_map_point_detail,
+    get_map_points,
+)
 
 router = APIRouter(prefix="/api", tags=["Irminsul Archive"])
 
@@ -90,3 +96,25 @@ async def list_achievements():
 async def achievement_guide(payload: AchievementGuideRequest):
     """Return concise unlock steps for an achievement."""
     return await generate_achievement_guide(payload)
+
+
+@router.get("/map/config", response_model=MapConfigResponse)
+async def map_config(map_id: int = Query(default=2, description="HoYoLAB Map ID (2=Teyvat, 7=Enkanomiya, 9=Chasm)")):
+    """Return interactive map bounds, tile slices, and category tree."""
+    return await get_map_config(map_id)
+
+
+@router.get("/map/points", response_model=MapPointsResponse)
+async def map_points(
+    map_id: int = Query(default=2),
+    label_ids: str = Query(default="", description="Comma-separated label IDs"),
+):
+    """Return pin coordinates for the requested category label IDs."""
+    parsed_ids = [int(x) for x in label_ids.split(",") if x.strip().isdigit()]
+    return await get_map_points(map_id, parsed_ids[:40])
+
+
+@router.get("/map/point/{point_id}", response_model=MapPointDetail)
+async def map_point_detail(point_id: int, map_id: int = Query(default=2)):
+    """Return description and location screenshot for a single map pin."""
+    return await get_map_point_detail(point_id, map_id)
