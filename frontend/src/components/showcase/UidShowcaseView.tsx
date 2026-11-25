@@ -78,11 +78,11 @@ function ShowcaseCharacterCard({
   const el = getElementStyle(ch.element);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-shadow hover:shadow-hover">
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-shadow hover:shadow-hover">
       {/* Calm Elemental Header Strip */}
       <div
         className={cn(
-          "flex items-center justify-between gap-4 border-b border-border-subtle bg-gradient-to-r px-5 py-4",
+          "flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-gradient-to-r px-4 py-3.5 sm:flex-nowrap sm:px-5 sm:py-4",
           el.cardTint
         )}
       >
@@ -156,7 +156,7 @@ function ShowcaseCharacterCard({
             ))}
           </div>
 
-          <div className="grid grid-cols-4 divide-x divide-border-subtle py-2 text-center">
+          <div className="grid grid-cols-2 divide-x divide-y divide-border-subtle text-center sm:grid-cols-4 sm:divide-y-0">
             {[
               { key: "Max HP", label: "HP" },
               { key: "ATK", label: "ATK" },

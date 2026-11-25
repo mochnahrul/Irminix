@@ -252,11 +252,11 @@ export function AiBuildAdvisorView({
           </div>
 
           {/* Animated Dimensions */}
-          <div className="grid gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {result.dimensions.map((d) => (
               <div
                 key={d.label}
-                className="rounded-xl border border-border-subtle bg-canvas/70 p-3.5"
+                className="min-w-0 rounded-xl border border-border-subtle bg-canvas/70 p-3.5"
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-ink-secondary">{d.label}</span>

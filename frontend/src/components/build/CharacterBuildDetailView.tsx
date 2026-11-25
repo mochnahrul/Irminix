@@ -242,31 +242,31 @@ export function CharacterBuildDetailView({
             {activeBuild && (
               <div className="space-y-6">
                 {/* At-a-Glance Quick Summary */}
-                <div className="grid gap-3 rounded-2xl border border-[#B8D8CE] bg-irminsul-soft/50 p-4 sm:grid-cols-3">
-                  <div className="rounded-xl bg-surface/90 p-3 shadow-sm">
+                <div className="grid gap-3 rounded-2xl border border-[#B8D8CE] bg-irminsul-soft/50 p-3.5 sm:grid-cols-3 sm:p-4">
+                  <div className="min-w-0 rounded-xl bg-surface/90 p-3 shadow-sm">
                     <p className="font-mono text-[10px] uppercase tracking-wider text-irminsul">
                       #1 Best Weapon
                     </p>
-                    <p className="mt-1 truncate text-sm font-semibold text-ink-primary">
+                    <p className="mt-1 break-words text-sm font-semibold leading-snug text-ink-primary">
                       {activeBuild.weapons[0]?.name || "Flexible Crit / Synergy"}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-surface/90 p-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl bg-surface/90 p-3 shadow-sm">
                     <p className="font-mono text-[10px] uppercase tracking-wider text-irminsul">
                       Best Artifact Set
                     </p>
-                    <p className="mt-1 truncate text-sm font-semibold text-ink-primary">
+                    <p className="mt-1 break-words text-sm font-semibold leading-snug text-ink-primary">
                       {activeBuild.artifacts[0]?.name ||
                         (activeBuild.artifacts[0]?.mix
                           ? activeBuild.artifacts[0].mix.map((m) => m.name).join(" + ")
                           : "Elemental Synergy")}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-surface/90 p-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl bg-surface/90 p-3 shadow-sm">
                     <p className="font-mono text-[10px] uppercase tracking-wider text-irminsul">
                       Level Talents First
                     </p>
-                    <p className="mt-1 truncate text-sm font-semibold text-ink-primary">
+                    <p className="mt-1 break-words text-sm font-semibold leading-snug text-ink-primary">
                       {activeBuild.talentPriority.length > 0
                         ? activeBuild.talentPriority.join(" → ")
                         : "Burst → Skill"}
@@ -274,9 +274,9 @@ export function CharacterBuildDetailView({
                   </div>
                 </div>
 
-                <div className="grid items-start gap-6 lg:grid-cols-2">
+                <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-6">
                 {/* Weapons */}
-                <section className="space-y-3 rounded-xl border border-border bg-canvas/60 p-4">
+                <section className="min-w-0 space-y-3 rounded-xl border border-border bg-canvas/60 p-3.5 sm:p-4">
                   <div className="flex items-center gap-2">
                     <Swords className="h-4 w-4 text-irminsul" />
                     <h2 className="font-heading text-sm font-semibold text-ink-primary">
@@ -342,7 +342,7 @@ export function CharacterBuildDetailView({
                 </section>
 
                 {/* Artifacts */}
-                <section className="space-y-3 rounded-xl border border-border bg-canvas/60 p-4">
+                <section className="min-w-0 space-y-3 rounded-xl border border-border bg-canvas/60 p-3.5 sm:p-4">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-irminsul" />
                     <h2 className="font-heading text-sm font-semibold text-ink-primary">
@@ -441,7 +441,7 @@ export function CharacterBuildDetailView({
                 </section>
 
                 {/* Main Stats & Substats */}
-                <section className="rounded-xl border border-border bg-canvas/60 p-4">
+                <section className="min-w-0 rounded-xl border border-border bg-canvas/60 p-3.5 sm:p-4">
                   <h2 className="font-heading text-sm font-semibold text-ink-primary">
                     Main Stats &amp; Substats
                   </h2>
@@ -472,7 +472,7 @@ export function CharacterBuildDetailView({
                 </section>
 
                 {/* Talent Priority */}
-                <section className="rounded-xl border border-border bg-canvas/60 p-4">
+                <section className="min-w-0 rounded-xl border border-border bg-canvas/60 p-3.5 sm:p-4">
                   <h2 className="font-heading text-sm font-semibold text-ink-primary">
                     Talent Priority
                   </h2>
@@ -540,7 +540,7 @@ export function CharacterBuildDetailView({
                 (item, idx) => (
                   <div
                     key={`${item.name}-${idx}`}
-                    className="flex items-start gap-3.5 rounded-xl border border-border bg-canvas/60 p-4"
+                    className="flex min-w-0 items-start gap-3.5 rounded-xl border border-border bg-canvas/60 p-3.5 sm:p-4"
                   >
                     {item.icon ? (
                       <img

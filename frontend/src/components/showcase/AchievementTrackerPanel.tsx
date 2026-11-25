@@ -259,8 +259,8 @@ export function AchievementTrackerPanel({
                   isDone && "bg-surface-subtle/60 opacity-80"
                 )}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start sm:gap-4">
+                  <div className="flex min-w-0 items-start gap-3">
                     <button
                       type="button"
                       onClick={() => toggleCompleted(item.id)}
@@ -298,7 +298,7 @@ export function AchievementTrackerPanel({
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center justify-between gap-2 pl-8 sm:justify-end sm:pl-0">
                     <span className="rounded-md bg-irminsul-goldSoft px-2 py-0.5 font-mono text-[11px] font-medium text-irminsul-gold">
                       +{item.primogems} Primo
                     </span>
@@ -313,7 +313,7 @@ export function AchievementTrackerPanel({
                       ) : (
                         <HelpCircle className="h-3.5 w-3.5 text-irminsul" />
                       )}
-                      <span className="hidden sm:inline">How to Unlock</span>
+                      <span>How to Unlock</span>
                     </Button>
                   </div>
                 </div>
