@@ -18,10 +18,11 @@ flowchart LR
 ## Caching & Latency Strategy
 
 1. **Shared HTTP Connection Pool (`app/core/http.py`)**: A single persistent `httpx.AsyncClient` reuses TLS/TCP keep-alive connections across all upstream API calls.
-2. **Concurrent Upstream Resolution**: Independent upstream calls (`get_helper_team_index` + `_fetch_yatta_avatars`, `weapons` + `reliquary`, Enka + Yatta metadata stores) run concurrently via `asyncio.gather()`.
-3. **Multi-Tier In-Memory TTL Cache (`app/core/cache.py`)**:
-   - **6 hours**: Character catalog, `CharacterDetail`, Helper Team tree/builds, Yatta weapon/reliquary indexes, Achievement catalog.
-   - **24 hours**: Individual weapon passive details, Enka+Yatta combined metadata stores, Gemini AI achievement walkthroughs.
+2. **Background Startup Warmup & Single-Flight Locks**: `app/main.py` pre-warms the character catalog, gear recommendation reverse-index (`_GEAR_RECS_LOCK`), and daily material-to-character map (`_MAT_MAP_LOCK`) asynchronously at startup so initial Database and Planner requests avoid cold-cache stalls or duplicate upstream bursts.
+3. **Concurrent Upstream Resolution**: Independent upstream calls (`get_helper_team_index` + `_fetch_yatta_avatars`, `weapons` + `reliquary`, `dailyDungeon` + `material`, Enka + Yatta metadata stores) run concurrently via `asyncio.gather()`.
+4. **Multi-Tier In-Memory TTL Cache (`app/core/cache.py`)**:
+   - **6 hours**: Character catalog, `CharacterDetail`, Helper Team tree/builds, gear `recommendedFor` reverse-index, Yatta weapon/reliquary/dailyDungeon/material indexes, Achievement catalog.
+   - **24 hours**: Individual weapon passive details, Yatta character material-plan details & material-to-character index, Enka+Yatta combined metadata stores, Gemini AI achievement walkthroughs.
    - **30 minutes**: Gemini AI Build Advisor evaluations.
    - **1–10 minutes**: Enka.Network player UID profiles (respecting Enka `ttl`, bypassable via `?refresh=true`).
    - *Note*: Fallback responses from `irminsul-local-engine` triggered by transient AI errors (`429` / `503`) are **not** cached so subsequent requests retry Gemini automatically.

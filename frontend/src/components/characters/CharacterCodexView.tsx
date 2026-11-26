@@ -43,8 +43,12 @@ export function CharacterCodexView({
   return (
     <div className="space-y-6">
       {/* Editorial Hero & Search */}
-      <div className="rounded-3xl border border-border bg-surface p-5 shadow-card sm:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="relative overflow-hidden rounded-3xl border border-border bg-surface p-5 shadow-card sm:p-7">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(36,106,86,0.08),transparent_70%)]"
+        />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[11px] uppercase tracking-widest text-irminsul">
@@ -69,7 +73,7 @@ export function CharacterCodexView({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search character or region..."
-              className="w-full rounded-xl border border-border bg-canvas py-2.5 pl-10 pr-9 text-sm text-ink-primary transition-colors placeholder:text-ink-dim focus:border-irminsul focus:outline-none"
+              className="w-full rounded-xl border border-border bg-canvas py-2.5 pl-10 pr-9 text-sm text-ink-primary shadow-sm transition-all placeholder:text-ink-dim focus:border-irminsul focus:bg-surface focus:outline-none focus:ring-2 focus:ring-irminsul/15"
             />
             {search && (
               <button

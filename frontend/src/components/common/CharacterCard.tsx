@@ -1,5 +1,6 @@
-import { ArrowUpRight, Star } from "lucide-react";
-import { cn, getElementStyle } from "@/lib/utils";
+import { ArrowUpRight } from "lucide-react";
+import { RarityBadge } from "@/components/ui/RarityBadge";
+import { cn, getElementStyle, getRarityAccent } from "@/lib/utils";
 import type { CharacterSummary } from "@/types/genshin";
 
 interface CharacterCardProps {
@@ -18,12 +19,7 @@ export function CharacterCard({ character, onSelect }: CharacterCardProps) {
       className="group relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface text-left shadow-card transition-all duration-200 hover:border-border-focus hover:shadow-hover"
     >
       {/* Subtle 5★ / 4★ top accent line */}
-      <div
-        className={cn(
-          "h-1 w-full shrink-0",
-          character.rarity === 5 ? "bg-[#C7A664]" : "bg-[#9AA3B0]/60"
-        )}
-      />
+      <div className={cn("h-1 w-full shrink-0", getRarityAccent(character.rarity))} />
 
       {/* Portrait Stage (isolated stacking context prevents hover layer glitches) */}
       <div
@@ -45,17 +41,7 @@ export function CharacterCard({ character, onSelect }: CharacterCardProps) {
             {character.vision}
           </span>
 
-          <span
-            className={cn(
-              "inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold shadow-sm",
-              character.rarity === 5
-                ? "border-[#E3D3AE] bg-[#FAF4E4] text-[#8A6728]"
-                : "border-border bg-surface/95 text-ink-secondary"
-            )}
-          >
-            {character.rarity}
-            <Star className="h-2.5 w-2.5 fill-current" />
-          </span>
+          <RarityBadge rarity={character.rarity} className="shadow-sm" />
         </div>
 
         <img

@@ -77,3 +77,43 @@ export function getElementStyle(vision: string): ElementStyle {
     }
   );
 }
+
+/** Consistent Genshin rarity colors across cards, details, tier list, and database. */
+export function getRarityStyle(rarity: number): string {
+  if (rarity >= 5) {
+    return "border-[#E3D3AE] bg-[#FAF4E4] text-[#8A6728]";
+  }
+  if (rarity === 4) {
+    return "border-[#D3C4E8] bg-[#F3EFF9] text-[#5C3D8A]";
+  }
+  if (rarity === 3) {
+    return "border-[#B9D3E6] bg-[#EDF4F9] text-[#255A80]";
+  }
+  return "border-border bg-surface-subtle text-ink-secondary";
+}
+
+/** Calm rarity gradient backdrop for weapon and artifact icon frames. */
+export function getRarityBackdrop(rarity: number): string {
+  if (rarity >= 5) {
+    return "border-[#E3D3AE] bg-gradient-to-b from-[#FAF3E0] to-[#EFE1BE]";
+  }
+  if (rarity === 4) {
+    return "border-[#D3C4E8] bg-gradient-to-b from-[#F4F0FA] to-[#E6DCF4]";
+  }
+  if (rarity === 3) {
+    return "border-[#B9D3E6] bg-gradient-to-b from-[#EEF5FA] to-[#DCEAF4]";
+  }
+  if (rarity === 2) {
+    return "border-[#C0DBBA] bg-gradient-to-b from-[#EEF6EC] to-[#DDECD9]";
+  }
+  return "border-border-subtle bg-surface-subtle";
+}
+
+/** Solid top-accent bar color matching Genshin rarity tiers. */
+export function getRarityAccent(rarity: number): string {
+  if (rarity >= 5) return "bg-[#C7A664]";
+  if (rarity === 4) return "bg-[#8E6BBF]";
+  if (rarity === 3) return "bg-[#4B8DB5]";
+  if (rarity === 2) return "bg-[#4E9A74]";
+  return "bg-[#8E939D]";
+}

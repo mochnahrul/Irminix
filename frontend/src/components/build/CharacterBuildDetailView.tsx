@@ -8,13 +8,13 @@ import {
   Download,
   Layers,
   Sparkles,
-  Star,
   Swords,
 } from "lucide-react";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { RarityBadge } from "@/components/ui/RarityBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn, getElementStyle } from "@/lib/utils";
+import { cn, getElementStyle, getRarityBackdrop } from "@/lib/utils";
 import { fetchCharacterDetail } from "@/services/api";
 import type { CharacterDetail } from "@/types/genshin";
 
@@ -193,10 +193,7 @@ export function CharacterBuildDetailView({
               {detail.constellation && (
                 <Badge className="bg-surface/80">{detail.constellation}</Badge>
               )}
-              <span className="inline-flex items-center gap-0.5 rounded-full border border-[#E3D3AE] bg-[#FAF4E4]/95 px-2 py-0.5 font-mono text-xs text-irminsul-gold">
-                {detail.rarity}
-                <Star className="h-3 w-3 fill-current" />
-              </span>
+              <RarityBadge rarity={detail.rarity} />
             </div>
 
             <h1 className="font-serif text-4xl tracking-tight text-ink-primary sm:text-5xl">
@@ -218,25 +215,44 @@ export function CharacterBuildDetailView({
         {/* Role Tabs */}
         {detail.builds.length > 0 && (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="mr-1 font-mono text-[11px] uppercase tracking-wider text-ink-dim">
-                Build Role
-              </span>
-              {detail.builds.map((b, idx) => (
-                <button
-                  key={`${b.role}-${idx}`}
-                  type="button"
-                  onClick={() => setActiveBuildIdx(idx)}
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-wide transition-colors",
-                    activeBuildIdx === idx
-                      ? "bg-irminsul text-white"
-                      : "bg-surface-subtle text-ink-secondary hover:text-ink-primary"
-                  )}
-                >
-                  {b.role}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 font-mono text-[11px] uppercase tracking-wider text-ink-dim">
+                  Build Role
+                </span>
+                {detail.builds.map((b, idx) => (
+                  <button
+                    key={`${b.role}-${idx}`}
+                    type="button"
+                    onClick={() => setActiveBuildIdx(idx)}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-wide transition-colors",
+                      activeBuildIdx === idx
+                        ? "bg-irminsul text-white"
+                        : "bg-surface-subtle text-ink-secondary hover:text-ink-primary"
+                    )}
+                  >
+                    {b.role}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {detail.buildLastUpdated ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[#B8D8CE] bg-irminsul-soft px-2.5 py-0.5 font-mono text-[11px] font-medium text-irminsul">
+                    Build Updated v{detail.buildLastUpdated}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[#E3D3AE] bg-irminsul-goldSoft px-2.5 py-0.5 font-mono text-[11px] font-medium text-irminsul-gold">
+                    {detail.source.includes("yatta-live") ? "General Guide" : "Legacy Baseline"}
+                  </span>
+                )}
+                {detail.versionReleased && (
+                  <span className="rounded-full border border-border bg-surface-subtle px-2.5 py-0.5 font-mono text-[11px] text-ink-secondary">
+                    Released v{detail.versionReleased}
+                  </span>
+                )}
+              </div>
             </div>
 
             {activeBuild && (
@@ -289,7 +305,7 @@ export function CharacterBuildDetailView({
                     </p>
                   ) : (
                     <div className="space-y-2.5">
-                      {activeBuild.weapons.slice(0, 6).map((w, i) => (
+                      {activeBuild.weapons.map((w, i) => (
                         <div
                           key={`${w.name}-${i}`}
                           className="rounded-xl border border-border bg-surface p-3"
@@ -306,7 +322,10 @@ export function CharacterBuildDetailView({
                                 onError={(e) => {
                                   (e.currentTarget as HTMLImageElement).style.display = "none";
                                 }}
-                                className="h-11 w-11 shrink-0 rounded-lg border border-border-subtle bg-surface-subtle object-contain p-1"
+                                className={cn(
+                                  "h-11 w-11 shrink-0 rounded-lg border object-contain p-1",
+                                  getRarityBackdrop(w.rarity)
+                                )}
                               />
                             )}
                             <div className="min-w-0 flex-1">
@@ -320,9 +339,10 @@ export function CharacterBuildDetailView({
                                       {w.subStat}
                                     </span>
                                   )}
-                                  <span className="font-mono text-[11px] text-irminsul-gold">
-                                    {w.rarity}★{w.refine > 0 ? ` R${w.refine}` : ""}
-                                  </span>
+                                  <RarityBadge
+                                    rarity={w.rarity}
+                                    suffix={w.refine > 0 ? ` R${w.refine}` : ""}
+                                  />
                                 </div>
                               </div>
                               {w.passiveName && (
@@ -379,7 +399,10 @@ export function CharacterBuildDetailView({
                                         onError={(e) => {
                                           (e.currentTarget as HTMLImageElement).style.display = "none";
                                         }}
-                                        className="h-9 w-9 shrink-0 rounded-md bg-surface object-contain p-0.5"
+                                        className={cn(
+                                          "h-9 w-9 shrink-0 rounded-md border object-contain p-0.5",
+                                          getRarityBackdrop(m.rarity)
+                                        )}
                                       />
                                     )}
                                     <div className="min-w-0 flex-1">
@@ -409,7 +432,10 @@ export function CharacterBuildDetailView({
                                   onError={(e) => {
                                     (e.currentTarget as HTMLImageElement).style.display = "none";
                                   }}
-                                  className="h-11 w-11 shrink-0 rounded-lg border border-border-subtle bg-surface-subtle object-contain p-1"
+                                  className={cn(
+                                    "h-11 w-11 shrink-0 rounded-lg border object-contain p-1",
+                                    getRarityBackdrop(art.rarity)
+                                  )}
                                 />
                               )}
                               <div className="min-w-0 flex-1">

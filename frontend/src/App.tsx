@@ -4,8 +4,12 @@ import { UidLoginView } from "@/components/auth/UidLoginView";
 import { CharacterBuildDetailView } from "@/components/build/CharacterBuildDetailView";
 import { CharacterCodexView } from "@/components/characters/CharacterCodexView";
 import { type ActiveTab } from "@/components/common/Navbar";
+import { DatabaseView } from "@/components/database/DatabaseView";
 import { AppShell } from "@/components/layout/AppShell";
+import { FarmingPlannerView } from "@/components/planner/FarmingPlannerView";
 import { UidShowcaseView } from "@/components/showcase/UidShowcaseView";
+import { TeamBuilderView } from "@/components/teams/TeamBuilderView";
+import { TierListView } from "@/components/tierlist/TierListView";
 import { SessionProvider, useSession } from "@/contexts/SessionContext";
 import { fetchCharacters } from "@/services/api";
 import type { CharacterSummary } from "@/types/genshin";
@@ -58,6 +62,44 @@ function IrminsulAppContent() {
             onSelectCharacter={setSelectedCharacterId}
           />
         ))}
+
+      {activeTab === "tierlist" && (
+        <TierListView
+          onSelectCharacter={(id) => {
+            setSelectedCharacterId(id);
+            setActiveTab("codex");
+          }}
+        />
+      )}
+
+      {activeTab === "teams" && (
+        <TeamBuilderView
+          characters={characters}
+          onSelectCharacter={(id) => {
+            setSelectedCharacterId(id);
+            setActiveTab("codex");
+          }}
+        />
+      )}
+
+      {activeTab === "planner" && (
+        <FarmingPlannerView
+          characters={characters}
+          onSelectCharacter={(id) => {
+            setSelectedCharacterId(id);
+            setActiveTab("codex");
+          }}
+        />
+      )}
+
+      {activeTab === "database" && (
+        <DatabaseView
+          onSelectCharacter={(id) => {
+            setSelectedCharacterId(id);
+            setActiveTab("codex");
+          }}
+        />
+      )}
 
       {activeTab === "showcase" && (
         <UidShowcaseView

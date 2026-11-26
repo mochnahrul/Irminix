@@ -79,16 +79,28 @@ export function AiBuildAdvisorView({
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-border pb-6">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-irminsul">
-          Smart Guide
-        </p>
-        <h1 className="mt-1 font-serif text-3xl tracking-tight text-ink-primary sm:text-4xl">
-          Build Advisor
-        </h1>
-        <p className="mt-1 text-sm text-ink-secondary">
-          Get a clear build score, what is already working, and what to farm next.
-        </p>
+      <div className="relative overflow-hidden rounded-3xl border border-border bg-surface p-5 shadow-card sm:p-7">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(36,106,86,0.08),transparent_70%)]"
+        />
+        <div className="relative">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-irminsul">
+              <Sparkles className="h-3.5 w-3.5" />
+              Smart Guide
+            </span>
+            <span className="rounded-full border border-[#B8D8CE] bg-irminsul-soft px-2.5 py-0.5 font-mono text-[11px] font-medium text-irminsul">
+              AI-Powered Evaluation
+            </span>
+          </div>
+          <h1 className="mt-1.5 font-serif text-3xl tracking-tight text-ink-primary sm:text-4xl">
+            Build Advisor
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-ink-secondary">
+            Get a clear build score, what is already working, and what to farm next.
+          </p>
+        </div>
       </div>
 
       {/* Modern Controls Bar */}

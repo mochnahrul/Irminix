@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,13 +9,37 @@ from app.api.routes import router as archive_router
 from app.core.cache import cache
 from app.core.config import settings
 from app.core.http import close_http_client
+from app.services.catalog_service import get_all_characters
+from app.services.database_service import _get_gear_recommendations
+from app.services.planner_service import _get_character_material_map
+
+logger = logging.getLogger(__name__)
+
+
+async def _warm_startup_caches() -> None:
+    """Warm slow upstream indexes in background so first user navigation is instant."""
+    try:
+        await get_all_characters()
+        await asyncio.gather(
+            _get_gear_recommendations(),
+            _get_character_material_map(),
+            return_exceptions=True,
+        )
+    except asyncio.CancelledError:
+        pass
+    except Exception as exc:
+        logger.debug(f"Startup cache warmup skipped: {exc}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
-    await close_http_client()
-    await cache.clear()
+    warmup_task = asyncio.create_task(_warm_startup_caches())
+    try:
+        yield
+    finally:
+        warmup_task.cancel()
+        await close_http_client()
+        await cache.clear()
 
 
 app = FastAPI(

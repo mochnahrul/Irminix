@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
-import { BookOpen, LogOut, RefreshCw, Sparkles, UserCheck } from "lucide-react";
+import { Award, BookOpen, Calendar, Database, LogOut, RefreshCw, Sparkles, UserCheck, Users } from "lucide-react";
 import { IrminsulLogo } from "@/components/common/IrminsulLogo";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
 
-export type ActiveTab = "codex" | "showcase" | "advisor";
+export type ActiveTab = "codex" | "tierlist" | "teams" | "planner" | "database" | "showcase" | "advisor";
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -17,9 +17,13 @@ export function Navbar({ activeTab, onTabChange, onResetCharacter }: NavbarProps
   const { profile, isConnecting, refreshProfile, disconnect } = useSession();
 
   const navItems: Array<{ id: ActiveTab; label: string; shortLabel: string; icon: typeof BookOpen }> = [
-    { id: "codex", label: "Character Builds", shortLabel: "Builds", icon: BookOpen },
-    { id: "showcase", label: "My Profile", shortLabel: "Profile", icon: UserCheck },
-    { id: "advisor", label: "Build Advisor", shortLabel: "Advisor", icon: Sparkles },
+    { id: "codex", label: "Builds", shortLabel: "Builds", icon: BookOpen },
+    { id: "tierlist", label: "Tier List", shortLabel: "Tiers", icon: Award },
+    { id: "teams", label: "Teams", shortLabel: "Teams", icon: Users },
+    { id: "planner", label: "Planner", shortLabel: "Plan", icon: Calendar },
+    { id: "database", label: "Database", shortLabel: "DB", icon: Database },
+    { id: "showcase", label: "Profile", shortLabel: "Profile", icon: UserCheck },
+    { id: "advisor", label: "Advisor", shortLabel: "Advisor", icon: Sparkles },
   ];
 
   const handleSelect = (tab: ActiveTab) => {
@@ -59,7 +63,7 @@ export function Navbar({ activeTab, onTabChange, onResetCharacter }: NavbarProps
                   type="button"
                   onClick={() => handleSelect(item.id)}
                   className={cn(
-                    "relative flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                    "relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
                     active ? "text-irminsul" : "text-ink-secondary hover:text-ink-primary"
                   )}
                 >
@@ -136,7 +140,7 @@ export function Navbar({ activeTab, onTabChange, onResetCharacter }: NavbarProps
         </div>
 
         {/* Mobile Nav Row */}
-        <nav className="grid grid-cols-3 gap-1 pb-2.5 md:hidden">
+        <nav className="flex items-center gap-1 overflow-x-auto pb-2.5 md:hidden">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = activeTab === item.id;
@@ -146,14 +150,14 @@ export function Navbar({ activeTab, onTabChange, onResetCharacter }: NavbarProps
                 type="button"
                 onClick={() => handleSelect(item.id)}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium transition-colors",
+                  "flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors",
                   active
                     ? "bg-irminsul-soft text-irminsul"
                     : "bg-surface/70 text-ink-secondary hover:text-ink-primary"
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
-                <span>{item.shortLabel}</span>
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="whitespace-nowrap">{item.shortLabel}</span>
               </button>
             );
           })}

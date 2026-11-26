@@ -10,10 +10,10 @@ Because **Irminix** is completely stateless (no database), it deploys cleanly to
 - Google Cloud CLI (`gcloud`) installed and authenticated (`gcloud auth login`)
 - A GCP Project with Cloud Run & Cloud Build APIs enabled
 
-### Deploy from `Irminsul/backend`
+### Deploy from `backend/`
 
 ```powershell
-cd Irminsul\backend
+cd backend
 
 gcloud run deploy irminix-api `
   --source . `
@@ -40,7 +40,7 @@ gcloud run deploy irminix-api `
 
 1. Push the repository to GitHub (ensure `.env` is ignored via `.gitignore`).
 2. In **Vercel Dashboard → Add New Project**, import your repository and set:
-   - **Root Directory**: `Irminsul/frontend`
+   - **Root Directory**: `frontend`
    - **Framework Preset**: `Vite`
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`

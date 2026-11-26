@@ -215,9 +215,11 @@ async def _fetch_role_build(
     )
 
 
-async def fetch_community_builds(slug: str) -> Optional[list[CharacterBuildGuide]]:
-    """Fetch live Genshin Impact Helper Team builds for a character slug."""
-    cache_key = f"irminsul:helper_team:build:{slug}"
+async def fetch_community_builds(
+    slug: str,
+) -> tuple[Optional[list[CharacterBuildGuide]], Optional[str], Optional[str]]:
+    """Fetch live Genshin Impact Helper Team builds and patch metadata for a character slug."""
+    cache_key = f"irminix:helper_team:build_v2:{slug}"
     cached = await cache.get(cache_key)
     if cached is not None:
         return cached
@@ -225,10 +227,22 @@ async def fetch_community_builds(slug: str) -> Optional[list[CharacterBuildGuide
     index = await get_helper_team_index()
     meta = index.get(slug)
     if not meta or not meta["roles"]:
-        return None
+        return None, None, None
 
     client = get_http_client()
-    builds = await asyncio.gather(
+    char_url = f"{HELPER_RAW_BASE}/{meta['element']}/{meta['rarity']}/{slug}"
+
+    async def _fetch_meta() -> dict[str, Any]:
+        try:
+            r = await client.get(f"{char_url}/metadata.json")
+            if r.status_code == 200:
+                return r.json()
+        except Exception:
+            pass
+        return {}
+
+    meta_json, *builds = await asyncio.gather(
+        _fetch_meta(),
         *[
             _fetch_role_build(
                 client,
@@ -238,12 +252,17 @@ async def fetch_community_builds(slug: str) -> Optional[list[CharacterBuildGuide
                 role,
             )
             for role in meta["roles"]
-        ]
+        ],
     )
 
     valid_builds = [b for b in builds if b.weapons or b.artifacts or b.mainStats]
+    last_updated = str(meta_json.get("last_updated")) if meta_json.get("last_updated") else None
+    version_released = (
+        str(meta_json.get("version_released")) if meta_json.get("version_released") else None
+    )
     if not valid_builds:
-        return None
+        return None, last_updated, version_released
 
-    await cache.set(cache_key, valid_builds, ttl_seconds=BUILD_TTL)
-    return valid_builds
+    result = (valid_builds, last_updated, version_released)
+    await cache.set(cache_key, result, ttl_seconds=BUILD_TTL)
+    return result

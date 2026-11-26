@@ -11,18 +11,18 @@ import {
   Share2,
   Shield,
   Sparkles,
-  Star,
   Trophy,
   Users,
   X,
 } from "lucide-react";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { RarityBadge } from "@/components/ui/RarityBadge";
 import { AchievementTrackerPanel } from "@/components/showcase/AchievementTrackerPanel";
 import { ShareShowcaseCardModal } from "@/components/showcase/ShareShowcaseCardModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/contexts/SessionContext";
-import { cn, getElementStyle } from "@/lib/utils";
+import { cn, getElementStyle, getRarityBackdrop } from "@/lib/utils";
 import type { CharacterSummary, ShowcaseCharacter } from "@/types/genshin";
 
 interface UidShowcaseViewProps {
@@ -59,6 +59,50 @@ function abbreviateStat(stat: string): string {
     .replace("Elemental Mastery", "EM")
     .replace("Crit Rate", "CR")
     .replace("Crit DMG", "CD");
+}
+
+function computeArtifactCv(
+  subStats: ShowcaseCharacter["artifacts"][number]["subStats"]
+): {
+  cv: number;
+  grade: string;
+  badgeClass: string;
+} {
+  let cr = 0;
+  let cd = 0;
+  for (const s of subStats) {
+    const num = parseFloat(String(s.value).replace("%", "")) || 0;
+    const low = s.stat.toLowerCase();
+    if (low.includes("crit rate")) cr += num;
+    else if (low.includes("crit dmg")) cd += num;
+  }
+  const cv = Math.round((cr * 2 + cd) * 10) / 10;
+  if (cv >= 40) {
+    return {
+      cv,
+      grade: "SS",
+      badgeClass: "border-[#C7A664]/40 bg-irminsul-goldSoft text-irminsul-gold",
+    };
+  }
+  if (cv >= 30) {
+    return {
+      cv,
+      grade: "S",
+      badgeClass: "border-[#B8D8CE] bg-irminsul-soft text-irminsul",
+    };
+  }
+  if (cv >= 20) {
+    return {
+      cv,
+      grade: "A",
+      badgeClass: "border-[#B9D3E6] bg-[#EDF5FA] text-[#3A7CA5]",
+    };
+  }
+  return {
+    cv,
+    grade: "B",
+    badgeClass: "border-border-subtle bg-surface-subtle text-ink-secondary",
+  };
 }
 
 function ShowcaseCharacterCard({
@@ -115,10 +159,7 @@ function ShowcaseCharacterCard({
             </div>
 
             <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 font-mono text-xs text-ink-secondary">
-              <span className="inline-flex items-center gap-0.5 text-irminsul-gold">
-                {ch.rarity}
-                <Star className="h-2.5 w-2.5 fill-current" />
-              </span>
+              <RarityBadge rarity={ch.rarity} />
               <span>Lv.{ch.level}</span>
               <span>C{ch.constellationsUnlocked}</span>
               <span>Talents {ch.talentLevels.slice(0, 3).join("/") || "—"}</span>
@@ -181,7 +222,10 @@ function ShowcaseCharacterCard({
                 <img
                   src={ch.weapon.iconUrl}
                   alt={ch.weapon.name}
-                  className="h-9 w-9 shrink-0 rounded-lg border border-border-subtle bg-surface object-contain p-0.5"
+                  className={cn(
+                    "h-9 w-9 shrink-0 rounded-lg border object-contain p-0.5",
+                    getRarityBackdrop(ch.weapon.rarity),
+                  )}
                 />
               )}
               <div className="min-w-0">
@@ -203,7 +247,9 @@ function ShowcaseCharacterCard({
         {/* Expandable 5-Piece Artifacts */}
         {showArtifacts && ch.artifacts.length > 0 && (
           <div className="space-y-2 border-t border-border-subtle pt-3">
-            {ch.artifacts.map((art, idx) => (
+            {ch.artifacts.map((art, idx) => {
+              const cvInfo = computeArtifactCv(art.subStats);
+              return (
               <div
                 key={`${art.slot}-${idx}`}
                 className="flex flex-col gap-2 rounded-xl border border-border-subtle bg-canvas/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
@@ -213,16 +259,29 @@ function ShowcaseCharacterCard({
                     <img
                       src={art.iconUrl}
                       alt={art.slot}
-                      className="h-8 w-8 shrink-0 rounded-md bg-surface object-contain p-0.5"
+                      className={cn(
+                        "h-8 w-8 shrink-0 rounded-md border object-contain p-0.5",
+                        getRarityBackdrop(art.rarity),
+                      )}
                     />
                   )}
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-ink-primary">
-                      {art.slot} ·{" "}
-                      <span className="font-mono font-semibold text-irminsul">
-                        {art.mainStat} {art.mainStatValue}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate text-xs font-medium text-ink-primary">
+                        {art.slot} ·{" "}
+                        <span className="font-mono font-semibold text-irminsul">
+                          {art.mainStat} {art.mainStatValue}
+                        </span>
+                      </p>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[9px] font-semibold leading-none",
+                          cvInfo.badgeClass
+                        )}
+                      >
+                        {cvInfo.cv.toFixed(1)} CV · {cvInfo.grade}
                       </span>
-                    </p>
+                    </div>
                     <p className="truncate font-mono text-[10px] text-ink-dim">
                       +{art.level} · {art.setName !== "Artifact Set" ? art.setName : art.name}
                     </p>
@@ -237,7 +296,8 @@ function ShowcaseCharacterCard({
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

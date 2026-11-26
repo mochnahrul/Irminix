@@ -1,9 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { Check, Copy, Download, Star, X } from "lucide-react";
+import { Check, Copy, Download, X } from "lucide-react";
 import { IrminsulLogo } from "@/components/common/IrminsulLogo";
+import { RarityBadge } from "@/components/ui/RarityBadge";
 import { Button } from "@/components/ui/button";
-import { cn, getElementStyle } from "@/lib/utils";
+import { cn, getElementStyle, getRarityBackdrop } from "@/lib/utils";
 import type { PlayerProfile, ShowcaseCharacter } from "@/types/genshin";
 
 interface ShareShowcaseCardModalProps {
@@ -25,6 +26,14 @@ export function ShareShowcaseCardModal({
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
 
   const el = getElementStyle(character.element);
 
@@ -67,7 +76,7 @@ export function ShareShowcaseCardModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-primary/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 !mt-0 flex items-center justify-center bg-ink-primary/55 p-4 backdrop-blur-md"
       onClick={onClose}
     >
       <div
@@ -127,10 +136,7 @@ export function ShareShowcaseCardModal({
                     <span className={cn("h-1.5 w-1.5 rounded-full", el.dot)} />
                     {character.element}
                   </span>
-                  <span className="inline-flex items-center gap-0.5 font-mono text-xs text-irminsul-gold">
-                    {character.rarity}
-                    <Star className="h-3 w-3 fill-current" />
-                  </span>
+                  <RarityBadge rarity={character.rarity} />
                 </div>
 
                 <h3 className="mt-1 font-serif text-3xl text-ink-primary">
@@ -187,7 +193,10 @@ export function ShareShowcaseCardModal({
                       src={character.weapon.iconUrl}
                       alt={character.weapon.name}
                       crossOrigin="anonymous"
-                      className="h-9 w-9 rounded-lg border border-border-subtle bg-surface object-contain p-0.5"
+                      className={cn(
+                        "h-9 w-9 rounded-lg border object-contain p-0.5",
+                        getRarityBackdrop(character.weapon.rarity)
+                      )}
                     />
                   )}
                   <div>

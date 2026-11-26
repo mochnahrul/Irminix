@@ -2,17 +2,20 @@
 
 ## Directory Layout
 
-- `app/main.py` — FastAPI initialization, `GZipMiddleware`, `CORSMiddleware`, `lifespan` cleanup, and `/health` endpoint.
+- `app/main.py` — FastAPI initialization, `GZipMiddleware`, `CORSMiddleware`, background startup cache warmup (`_warm_startup_caches`), `lifespan` cleanup, and `/health` endpoint.
 - `app/core/config.py` — Pydantic `BaseSettings` reading `.env` (`GEMINI_API_KEY`, `FRONTEND_URL`, `ENVIRONMENT`, `ENKA_USER_AGENT`, upstream base URLs).
 - `app/core/cache.py` — Async-safe `TTLCache` protected by `asyncio.Lock`.
 - `app/core/http.py` — Singleton `httpx.AsyncClient` with connection limits (`max_connections=40`, `max_keepalive_connections=20`).
-- `app/api/routes.py` — Archive, Advisor, Achievement, and Cache endpoints under `/api`.
+- `app/api/routes.py` — Archive, Tier List, Database, Farming/Planner, Team Analyzer, Advisor, Achievement, and Cache endpoints under `/api`.
 - `app/api/auth.py` — Zero-password UID Quick-Connect endpoints under `/api/auth`.
-- `app/schemas/` — Pydantic v2 camelCase models (`character.py`, `auth.py`, `advisor.py`, `achievement.py`).
+- `app/schemas/` — Pydantic v2 camelCase models (`character.py`, `database.py`, `planner.py`, `auth.py`, `advisor.py`, `achievement.py`).
 - `app/services/`:
-  - `catalog_service.py`: Merges `genshin-impact-helper-team` builds, `gi.yatta.moe` live character data, and `@lru_cache` offline `data/build.json` fallback. Caches `CharacterDetail` for 6 hours.
-  - `community_builds_service.py`: Fetches the `genshin-builds` GitHub tree once, resolves role-level or character-root JSON files concurrently, and normalizes weapon/artifact/stat/talent priorities.
+  - `catalog_service.py`: Merges live `genshin-impact-helper-team` builds and `gi.yatta.moe` character metadata. Caches `CharacterDetail` for 6 hours.
+  - `community_builds_service.py`: Fetches the `genshin-builds` GitHub tree once, resolves role-level or character-root JSON files concurrently, and normalizes weapon/artifact/stat/talent priorities plus patch metadata (`lastUpdated`, `versionReleased`).
   - `yatta_service.py`: Enriches recommended weapons (icons, rarities, substats, R1 passives) and artifact sets (icons, 2pc/4pc bonuses, generic 2pc mix fallbacks).
+  - `database_service.py`: Serves weapons, artifact sets, and elemental reactions/resonances from `gi.yatta.moe`, and builds single-flight locked `recommendedFor` reverse-lookup maps (`_GEAR_RECS_LOCK`) from live Helper Team builds.
+  - `tierlist_service.py`: Provides the Version 7.2 character tier list (`S`–`D`) mapped by official role (`Main DPS`, `Sub DPS`, `Support`).
+  - `planner_service.py`: Fetches daily `gi.yatta.moe` domain schedules (`dailyDungeon` + `material`) with single-flight locked character-material indexing (`_MAT_MAP_LOCK`), calculates per-stage character ascension/talent material costs, and runs deterministic 4-slot team synergy analysis (Elemental Resonances, Swirl/Crystallize-aware Reactions, and `TIER_OVERRIDES`-backed role coverage).
   - `enka_service.py`: Fetches Enka.Network UID profiles, resolves newer characters/weapons/artifact sets via `gi.yatta.moe`, computes Artifact Crit Value (CV), and parses Spiral Abyss, Imaginarium Theater, and Stygian Onslaught stats.
   - `achievement_service.py`: Normalizes 1,900+ achievements from `gi.yatta.moe` and generates unlock walkthroughs via `gemini-3.8-flash` or `_deterministic_guide`.
   - `ai_service.py`: Evaluates builds with `gemini-3.8-flash` or `_deterministic_advisor` (supporting `scholar`, `strategist`, and `concise` tones, plus `4pc Marechaussee Hunter` / `Obsidian Codex` effective Crit Rate awareness).

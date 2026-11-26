@@ -283,10 +283,11 @@ async def get_character_detail(identifier: str) -> Optional[CharacterDetail]:
         None,
     )
 
-    yatta_items, community_builds = await asyncio.gather(
+    yatta_items, build_bundle = await asyncio.gather(
         _fetch_yatta_avatars(),
         fetch_community_builds(target_slug),
     )
+    community_builds, build_last_updated, version_released = build_bundle
     yatta_summary = next(
         (av for av in yatta_items.values() if slugify_name(av.get("name", "")) == target_slug),
         None,
@@ -392,6 +393,8 @@ async def get_character_detail(identifier: str) -> Optional[CharacterDetail]:
         description=clean_hoyo_text(fetter.get("detail")),
         constellation=fetter.get("constellation"),
         birthday=birthday_str,
+        buildLastUpdated=build_last_updated,
+        versionReleased=version_released,
         builds=enriched_builds,
         talents=talents,
         constellations=constellations,

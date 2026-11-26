@@ -62,6 +62,8 @@ class CharacterDetail(CharacterSummary):
     description: Optional[str] = None
     constellation: Optional[str] = None
     birthday: Optional[str] = None
+    buildLastUpdated: Optional[str] = None
+    versionReleased: Optional[str] = None
     builds: list[CharacterBuildGuide] = []
     talents: list[dict[str, str]] = []
     constellations: list[dict[str, str]] = []

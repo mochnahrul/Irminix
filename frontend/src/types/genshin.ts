@@ -53,6 +53,8 @@ export interface CharacterDetail extends CharacterSummary {
   description?: string | null;
   constellation?: string | null;
   birthday?: string | null;
+  buildLastUpdated?: string | null;
+  versionReleased?: string | null;
   builds: CharacterBuildGuide[];
   talents: Array<{ name: string; unlock: string; description: string; icon?: string }>;
   constellations: Array<{ name: string; unlock: string; description: string; icon?: string }>;
@@ -156,4 +158,124 @@ export interface AchievementGuideResponse {
   steps: string[];
   tip: string;
   poweredBy: string;
+}
+
+export interface TierEntry {
+  character: CharacterSummary;
+  tier: string;
+  roleGroup: string;
+}
+
+export interface TierListResponse {
+  patchLabel: string;
+  entries: TierEntry[];
+}
+
+export interface GearUserRecommendation {
+  characterId: string;
+  name: string;
+  vision: string;
+  rarity: number;
+  image: string;
+  role: string;
+  rank: number;
+}
+
+export interface WeaponItem {
+  id: number;
+  name: string;
+  rarity: number;
+  weaponType: string;
+  subStat?: string | null;
+  image: string;
+  recommendedFor?: GearUserRecommendation[];
+}
+
+export interface WeaponDetailResponse extends WeaponItem {
+  description: string;
+  passiveName?: string | null;
+  passiveDescription?: string | null;
+}
+
+export interface ArtifactSetItem {
+  id: number;
+  name: string;
+  maxRarity: number;
+  image: string;
+  bonuses: string[];
+  recommendedFor?: GearUserRecommendation[];
+}
+
+export interface ElementalResonanceItem {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface ElementalReactionItem {
+  name: string;
+  elements: string[];
+  category: string;
+  scaling: string;
+  description: string;
+}
+
+export interface ElementsDatabaseResponse {
+  resonances: ElementalResonanceItem[];
+  reactions: ElementalReactionItem[];
+}
+
+export interface MaterialBrief {
+  id: number;
+  name: string;
+  rank: number;
+  icon: string;
+  count: number;
+}
+
+export interface DomainScheduleItem {
+  id: number;
+  name: string;
+  city: string;
+  category: string;
+  materials: MaterialBrief[];
+  characters: CharacterSummary[];
+}
+
+export interface DailyFarmingResponse {
+  day: string;
+  availableDays: string[];
+  talentDomains: DomainScheduleItem[];
+  weaponDomains: DomainScheduleItem[];
+}
+
+export interface AscensionStagePlan {
+  promoteLevel: number;
+  unlockMaxLevel: number;
+  coinCost: number;
+  items: MaterialBrief[];
+}
+
+export interface TalentStagePlan {
+  level: number;
+  coinCost: number;
+  items: MaterialBrief[];
+}
+
+export interface CharacterMaterialPlanResponse {
+  characterId: string;
+  name: string;
+  rarity: number;
+  vision: string;
+  image: string;
+  ascensionStages: AscensionStagePlan[];
+  talentStages: TalentStagePlan[];
+}
+
+export interface TeamAnalyzeResponse {
+  characters: CharacterSummary[];
+  activeResonances: ElementalResonanceItem[];
+  triggerableReactions: ElementalReactionItem[];
+  roleCounts: Record<string, number>;
+  synergyNotes: string[];
 }

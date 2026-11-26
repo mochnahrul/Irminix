@@ -43,10 +43,13 @@ GENERIC_SET_FALLBACKS: dict[str, tuple[str, str, str]] = {
 
 
 def clean_hoyo_text(raw: Optional[str]) -> str:
-    """Strip HoYoverse rich-text color/italic tags and normalize whitespace."""
+    """Strip HoYoverse rich-text tags ({LINK#...}, <color>, etc.) and normalize whitespace."""
     if not raw:
         return ""
     cleaned = re.sub(r"</?(?:color|i|b)[^>]*>", "", raw)
+    cleaned = re.sub(r"\{/?LINK[^}]*\}", "", cleaned)
+    cleaned = re.sub(r"\bLINK#[A-Za-z0-9_]+\}", "", cleaned)
+    cleaned = re.sub(r"\{/?(?:SPRITE_PRESET|LAYOUT_[^}]*)[^}]*\}", "", cleaned)
     cleaned = cleaned.replace("\\n", "\n")
     return cleaned.strip()
 
@@ -132,7 +135,7 @@ async def enrich_builds_with_yatta(builds: list[CharacterBuildGuide]) -> list[Ch
     # Collect unique weapon IDs across top 6 weapons per build to fetch passives concurrently
     weapon_ids_to_fetch: dict[str, int] = {}
     for b in builds:
-        for w in b.weapons[:6]:
+        for w in b.weapons:
             key = _normalize_lookup_key(w.name)
             match = weapons_idx.get(key)
             if match and "id" in match:
@@ -151,7 +154,7 @@ async def enrich_builds_with_yatta(builds: list[CharacterBuildGuide]) -> list[Ch
     enriched_builds: list[CharacterBuildGuide] = []
     for b in builds:
         new_weapons = []
-        for w in b.weapons[:6]:
+        for w in b.weapons:
             key = _normalize_lookup_key(w.name)
             meta = weapons_idx.get(key)
             if meta:

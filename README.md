@@ -6,8 +6,12 @@
 
 ## Key Features
 
-- **Character Builds Codex**: Filterable catalog of all Genshin Impact characters by Element, Weapon Type, Rarity, and search query, with quick-summary cards, weapon rankings + passives, artifact set bonuses (`4pc` and `2pc + 2pc`), main/substat priorities, talent order, combat kit, constellations, and PNG card export.
-- **My Profile (UID Quick-Connect)**: Zero-password Genshin UID lookup via **Enka.Network**, displaying Adventure Rank, World Level, Spiral Abyss, Imaginarium Theater, Stygian Onslaught, Top 12 showcase characters ranked by Character Value, 7-stat strip, 5-piece artifact inspector, and **Share Build Card** (PNG + Discord Markdown).
+- **Character Builds Codex**: Filterable catalog of all Genshin Impact characters by Element, Weapon Type, Rarity, and search query, with patch-versioned community builds (`Build Updated` / `Released` badges), weapon rankings + passives, artifact set bonuses (`4pc` and `2pc + 2pc`), main/substat priorities, talent order, combat kit, constellations, and PNG card export.
+- **Tier List (Version 7.2)**: Role-aware character tier list (`S / A / B / C / D`) with Role, Element, Weapon, Rarity, and search filters.
+- **Team Comp & Synergy Checker**: 4-slot party builder that evaluates active **Elemental Resonances**, **Triggerable Elemental Reactions** (including Swirl & Crystallize), role balance (`Main DPS`, `Sub DPS`, `Support`), and synergy tips.
+- **Farming Schedule & Material Planner**: Daily Talent Book & Weapon Ascension domain rotation (`Mon–Sun`, highlighting UID Showcase characters) plus a per-character **Ascension & Talent Material Calculator** (`From → To` levels + Mora cost).
+- **Game Database**: Searchable index of **Weapons**, **Artifact Sets**, and **Elemental Reactions & Resonances** with rarity backdrops, character avatar previews (`+N more`), and clickable **Best Used By** modals.
+- **My Profile (UID Quick-Connect)**: Zero-password Genshin UID lookup via **Enka.Network**, displaying Adventure Rank, World Level, Spiral Abyss, Imaginarium Theater, Stygian Onslaught, Top 12 showcase characters ranked by Character Value, 7-stat strip, 5-piece artifact inspector with **Crit Value (CV) & Grade (`SS/S/A/B`)**, and **Share Build Card** (PNG + Discord Markdown).
 - **Achievement Tracker**: Full catalog of 1,900+ achievements from `gi.yatta.moe` with category/status filtering, `localStorage` completion checklist synced per UID, and **How to Unlock** walkthroughs.
 - **Build Advisor**: Evaluates either your actual equipped UID showcase build (*Checking Your Equipped Build*) or target build plan (*Recommended Build Plan*) across 5 dimensions with 3 advice styles (`Balanced`, `Min-Max`, `Short`).
 
@@ -26,14 +30,13 @@
 ## Project Structure
 
 ```text
-Irminsul/
+Genshin Prodigy/
 ├── backend/
 │   ├── app/
 │   │   ├── api/                 # FastAPI routers (routes.py, auth.py)
 │   │   ├── core/                # Settings, shared httpx pool, and async TTL cache
-│   │   ├── data/                # Offline fallback build.json baseline
 │   │   ├── schemas/             # Pydantic v2 camelCase schemas
-│   │   └── services/            # Catalog, Community Builds, Yatta, Enka, Achievements, and AI services
+│   │   └── services/            # Catalog, Community Builds, Yatta, Enka, Database, Tier List, Planner, Achievements, AI
 │   ├── Dockerfile               # Cloud Run container definition
 │   ├── requirements.txt
 │   ├── test_api.py
@@ -41,9 +44,9 @@ Irminsul/
 ├── frontend/
 │   ├── public/favicon.svg
 │   ├── src/
-│   │   ├── components/          # advisor, auth, build, characters, common, layout, showcase, ui
+│   │   ├── components/          # advisor, auth, build, characters, common, database, layout, planner, showcase, teams, tierlist, ui
 │   │   ├── contexts/            # SessionContext (UID & Guest state in localStorage)
-│   │   ├── lib/                 # Element palette & Tailwind helpers
+│   │   ├── lib/                 # Element palette, rarity helpers & Tailwind utilities
 │   │   ├── services/            # Typed API client with 2-min in-memory TTL cache
 │   │   └── types/               # TypeScript domain types
 │   ├── package.json
