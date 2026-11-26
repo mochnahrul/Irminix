@@ -1,8 +1,9 @@
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Optional
 from app.core.cache import cache
 from app.core.config import settings
+from app.core.constants import WEAPON_TYPE_MAP, safe_int, yatta_icon_url
 from app.core.http import get_http_client
 from app.schemas.database import (
     ArtifactSetItem,
@@ -17,25 +18,20 @@ from app.services.catalog_service import get_all_characters, slugify_name
 from app.services.community_builds_service import fetch_community_builds, get_helper_team_index
 from app.services.yatta_service import (
     SUBSTAT_MAP,
+    _get_weapon_curve,
     _get_weapon_detail,
     _get_yatta_reliquaries,
     _get_yatta_weapons,
     _normalize_lookup_key,
     clean_hoyo_text,
+    compute_weapon_stats,
+    extract_weapon_affix,
 )
 
 logger = logging.getLogger(__name__)
 
 ELEMENTS_TTL = 60 * 60 * 6  # 6 hours
 _GEAR_RECS_LOCK = asyncio.Lock()
-
-WEAPON_TYPE_LABELS = {
-    "WEAPON_SWORD_ONE_HAND": "Sword",
-    "WEAPON_CLAYMORE": "Claymore",
-    "WEAPON_POLE": "Polearm",
-    "WEAPON_BOW": "Bow",
-    "WEAPON_CATALYST": "Catalyst",
-}
 
 ELEMENTAL_REACTIONS: list[ElementalReactionItem] = [
     ElementalReactionItem(
@@ -123,16 +119,19 @@ async def get_database_weapons() -> list[WeaponItem]:
     weapon_recs, _ = await _get_gear_recommendations()
     items: list[WeaponItem] = []
     for meta in weapons_idx.values():
+        wid = safe_int(meta.get("id"), -1)
+        if wid < 0:
+            continue
         icon = meta.get("icon", "")
         wname = meta.get("name", "Weapon")
         items.append(
             WeaponItem(
-                id=int(meta["id"]),
+                id=wid,
                 name=wname,
-                rarity=int(meta.get("rank", 3)),
-                weaponType=WEAPON_TYPE_LABELS.get(meta.get("type", ""), "Sword"),
+                rarity=safe_int(meta.get("rank"), 3),
+                weaponType=WEAPON_TYPE_MAP.get(meta.get("type", ""), "Sword"),
                 subStat=SUBSTAT_MAP.get(meta.get("specialProp", "")),
-                image=f"{settings.YATTA_ASSET_BASE}/{icon}.png" if icon else "",
+                image=yatta_icon_url(icon),
                 recommendedFor=weapon_recs.get(_normalize_lookup_key(wname), []),
             )
         )
@@ -145,7 +144,7 @@ async def _get_gear_recommendations() -> tuple[
     dict[str, list[GearUserRecommendation]],
 ]:
     """Build reverse-lookup maps prioritizing live Helper Team builds."""
-    cache_key = "irminix:db:gear_recs_v3"
+    cache_key = "irminsul:db:gear_recs_v4"
     cached = await cache.get(cache_key)
     if cached is not None:
         w_raw, a_raw = cached
@@ -196,7 +195,7 @@ async def _build_gear_recommendations(
     # Index live Helper Team builds (matches Character Build Detail view 1:1)
     try:
         helper_idx = await get_helper_team_index()
-        sem = asyncio.Semaphore(25)
+        sem = asyncio.Semaphore(6)
 
         async def load_helper_char(slug: str) -> None:
             async with sem:
@@ -219,30 +218,16 @@ async def _build_gear_recommendations(
                                 rarity=ch.rarity,
                                 image=ch.image,
                                 role=g.role,
-                                rank=idx,
+                                rank=w.rank or idx,
                             ),
                         )
                 for idx, art in enumerate(g.artifacts, start=1):
-                    if art.mix:
-                        for p in art.mix:
-                            if p.name:
-                                record(
-                                    artifact_map,
-                                    p.name,
-                                    GearUserRecommendation(
-                                        characterId=ch.id,
-                                        name=ch.name,
-                                        vision=ch.vision,
-                                        rarity=ch.rarity,
-                                        image=ch.image,
-                                        role=g.role,
-                                        rank=idx,
-                                    ),
-                                )
-                    elif art.name:
+                    art_rank = art.rank or idx
+                    art_names = [p.name for p in art.mix if p.name] if art.mix else ([art.name] if art.name else [])
+                    for aname in art_names:
                         record(
                             artifact_map,
-                            art.name,
+                            aname,
                             GearUserRecommendation(
                                 characterId=ch.id,
                                 name=ch.name,
@@ -250,7 +235,7 @@ async def _build_gear_recommendations(
                                 rarity=ch.rarity,
                                 image=ch.image,
                                 role=g.role,
-                                rank=idx,
+                                rank=art_rank,
                             ),
                         )
 
@@ -267,38 +252,45 @@ async def _build_gear_recommendations(
         for k, v in artifact_map.items()
     }
 
-    await cache.set(
-        cache_key,
-        (
-            {k: [x.model_dump() for x in v] for k, v in w_out.items()},
-            {k: [x.model_dump() for x in v] for k, v in a_out.items()},
-        ),
-        ttl_seconds=ELEMENTS_TTL,
-    )
+    if w_out or a_out:
+        await cache.set(
+            cache_key,
+            (
+                {k: [x.model_dump() for x in v] for k, v in w_out.items()},
+                {k: [x.model_dump() for x in v] for k, v in a_out.items()},
+            ),
+            ttl_seconds=ELEMENTS_TTL,
+        )
     return w_out, a_out
 
 
-async def get_database_weapon_detail(weapon_id: int) -> WeaponDetailResponse:
+async def get_database_weapon_detail(weapon_id: int) -> Optional[WeaponDetailResponse]:
     client = get_http_client()
-    detail = await _get_weapon_detail(client, weapon_id)
+    detail, curve_90, (weapon_recs, _) = await asyncio.gather(
+        _get_weapon_detail(client, weapon_id),
+        _get_weapon_curve(),
+        _get_gear_recommendations(),
+    )
     if not detail:
-        return WeaponDetailResponse(id=weapon_id, name="Unknown Weapon", rarity=3, weaponType="Sword")
+        return None
 
-    weapon_recs, _ = await _get_gear_recommendations()
     wname = detail.get("name", "Weapon")
     icon = detail.get("icon", "")
-    affix_dict = detail.get("affix") or {}
-    first_affix = next(iter(affix_dict.values()), {}) if isinstance(affix_dict, dict) else {}
+    passive_name, refinements, passive_desc = extract_weapon_affix(detail)
+    base_atk_str, sub_val_str = compute_weapon_stats(detail, curve_90)
     return WeaponDetailResponse(
-        id=int(detail.get("id", weapon_id)),
+        id=safe_int(detail.get("id"), weapon_id),
         name=wname,
-        rarity=int(detail.get("rank", 3)),
-        weaponType=WEAPON_TYPE_LABELS.get(detail.get("type", ""), "Sword"),
+        rarity=safe_int(detail.get("rank"), 3),
+        weaponType=WEAPON_TYPE_MAP.get(detail.get("type", ""), "Sword"),
         subStat=SUBSTAT_MAP.get(detail.get("specialProp", "")),
-        image=f"{settings.YATTA_ASSET_BASE}/{icon}.png" if icon else "",
+        baseAtk=base_atk_str,
+        subStatValue=sub_val_str,
+        image=yatta_icon_url(icon),
         description=clean_hoyo_text(detail.get("description")),
-        passiveName=first_affix.get("name"),
-        passiveDescription=clean_hoyo_text((first_affix.get("upgrade") or {}).get("0")),
+        passiveName=passive_name,
+        passiveDescription=passive_desc,
+        passiveRefinements=refinements,
         recommendedFor=weapon_recs.get(_normalize_lookup_key(wname), []),
     )
 
@@ -308,15 +300,18 @@ async def get_database_artifacts() -> list[ArtifactSetItem]:
     _, artifact_recs = await _get_gear_recommendations()
     items: list[ArtifactSetItem] = []
     for meta in relics_idx.values():
+        aid = safe_int(meta.get("id"), -1)
+        if aid < 0:
+            continue
         icon = meta.get("icon", "")
-        levels = meta.get("levelList") or [4]
+        levels = [safe_int(lv, 4) for lv in (meta.get("levelList") or [4])]
         affixes = list((meta.get("affixList") or {}).values())
         aname = meta.get("name", "Artifact Set")
         items.append(
             ArtifactSetItem(
-                id=int(meta["id"]),
+                id=aid,
                 name=aname,
-                maxRarity=max(levels),
+                maxRarity=max(levels) if levels else 4,
                 image=f"{settings.YATTA_ASSET_BASE}/reliquary/{icon}.png" if icon else "",
                 bonuses=[clean_hoyo_text(a) for a in affixes],
                 recommendedFor=artifact_recs.get(_normalize_lookup_key(aname), []),
@@ -327,7 +322,7 @@ async def get_database_artifacts() -> list[ArtifactSetItem]:
 
 
 async def get_database_elements() -> ElementsDatabaseResponse:
-    cache_key = "irminix:db:elements"
+    cache_key = "irminsul:db:elements"
     cached = await cache.get(cache_key)
     if cached is not None:
         return cached

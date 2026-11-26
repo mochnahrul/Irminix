@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { BookOpen, CheckCircle2, Compass, Sparkles, TrendingUp, UserCheck } from "lucide-react";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
@@ -34,6 +34,7 @@ export function AiBuildAdvisorView({
   const [result, setResult] = useState<BuildAdvisorResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const analyzeSeqRef = useRef(0);
 
   const isInShowcase = useMemo(
     () =>
@@ -46,8 +47,12 @@ export function AiBuildAdvisorView({
   );
 
   useEffect(() => {
-    if (initialCharacter) setSelectedName(initialCharacter);
-  }, [initialCharacter]);
+    if (initialCharacter) {
+      setSelectedName(initialCharacter);
+    } else if (characters.length > 0 && !characters.some((c) => c.name === selectedName)) {
+      setSelectedName(characters[0].name);
+    }
+  }, [initialCharacter, characters, selectedName]);
 
   const quickPickNames = useMemo(() => {
     if (profile && profile.showcaseCharacters.length > 0) {
@@ -60,20 +65,30 @@ export function AiBuildAdvisorView({
     const target = overrideName || selectedName;
     if (!target) return;
     if (overrideName) setSelectedName(overrideName);
+    const seq = ++analyzeSeqRef.current;
     setLoading(true);
     setError(null);
     try {
       const data = await fetchBuildAdvice({
         characterName: target,
         uid: uid || undefined,
-        role: initialRole || undefined,
+        role:
+          initialCharacter && target.toLowerCase() === initialCharacter.toLowerCase()
+            ? initialRole || undefined
+            : undefined,
         tone,
       });
-      setResult(data);
+      if (analyzeSeqRef.current === seq) {
+        setResult(data);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to analyze build.");
+      if (analyzeSeqRef.current === seq) {
+        setError(err instanceof Error ? err.message : "Failed to analyze build.");
+      }
     } finally {
-      setLoading(false);
+      if (analyzeSeqRef.current === seq) {
+        setLoading(false);
+      }
     }
   };
 

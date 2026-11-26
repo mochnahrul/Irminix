@@ -5,6 +5,7 @@ from typing import Any, Optional
 import httpx
 from app.core.cache import cache
 from app.core.config import settings
+from app.core.constants import fetch_yatta_json, safe_int, yatta_icon_url
 from app.core.http import get_http_client
 from app.schemas.character import CharacterBuildGuide
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 YATTA_TTL = 60 * 60 * 6  # 6 hours
 WEAPON_DETAIL_TTL = 60 * 60 * 24  # 24 hours
+WEAPON_CURVE_URL = "https://gi.yatta.moe/api/v2/static/weaponCurve"
 
 SUBSTAT_MAP = {
     "FIGHT_PROP_CRITICAL": "Crit Rate",
@@ -65,19 +67,21 @@ async def _get_yatta_weapons() -> dict[str, dict[str, Any]]:
         return cached
 
     by_key: dict[str, dict[str, Any]] = {}
-    try:
-        client = get_http_client()
-        res = await client.get(f"{settings.GENSHIN_API_BASE}/weapon")
-        if res.status_code == 200:
-            items = res.json().get("data", {}).get("items", {})
-            for item in items.values():
-                name = item.get("name", "")
+    data = await fetch_yatta_json(
+        "irminsul:yatta:raw:weapon",
+        f"{settings.GENSHIN_API_BASE}/weapon",
+        ttl_seconds=YATTA_TTL,
+    )
+    items = (data or {}).get("items") or {}
+    if isinstance(items, dict):
+        for item in items.values():
+            if isinstance(item, dict):
+                name = item.get("name") or ""
                 if name:
                     by_key[_normalize_lookup_key(name)] = item
-    except Exception as exc:
-        logger.warning(f"Failed to fetch Yatta weapon index: {exc}")
 
-    await cache.set(cache_key, by_key, ttl_seconds=YATTA_TTL)
+    if by_key:
+        await cache.set(cache_key, by_key, ttl_seconds=YATTA_TTL)
     return by_key
 
 
@@ -88,38 +92,110 @@ async def _get_yatta_reliquaries() -> dict[str, dict[str, Any]]:
         return cached
 
     by_key: dict[str, dict[str, Any]] = {}
-    try:
-        client = get_http_client()
-        res = await client.get(f"{settings.GENSHIN_API_BASE}/reliquary")
-        if res.status_code == 200:
-            items = res.json().get("data", {}).get("items", {})
-            for item in items.values():
-                name = item.get("name", "")
+    data = await fetch_yatta_json(
+        "irminsul:yatta:raw:reliquary",
+        f"{settings.GENSHIN_API_BASE}/reliquary",
+        ttl_seconds=YATTA_TTL,
+    )
+    items = (data or {}).get("items") or {}
+    if isinstance(items, dict):
+        for item in items.values():
+            if isinstance(item, dict):
+                name = item.get("name") or ""
                 if name:
                     by_key[_normalize_lookup_key(name)] = item
-    except Exception as exc:
-        logger.warning(f"Failed to fetch Yatta reliquary index: {exc}")
 
-    await cache.set(cache_key, by_key, ttl_seconds=YATTA_TTL)
+    if by_key:
+        await cache.set(cache_key, by_key, ttl_seconds=YATTA_TTL)
     return by_key
 
 
-async def _get_weapon_detail(client: httpx.AsyncClient, weapon_id: int) -> Optional[dict[str, Any]]:
-    cache_key = f"irminsul:yatta:weapon_detail:{weapon_id}"
+async def _get_weapon_detail(_client: httpx.AsyncClient, weapon_id: int) -> Optional[dict[str, Any]]:
+    return await fetch_yatta_json(
+        f"irminsul:yatta:weapon_detail:{weapon_id}",
+        f"{settings.GENSHIN_API_BASE}/weapon/{weapon_id}",
+        ttl_seconds=WEAPON_DETAIL_TTL,
+    )
+
+
+def extract_weapon_affix(detail: dict[str, Any]) -> tuple[Optional[str], list[str], Optional[str]]:
+    """Extract passive name, R1..R5 cleaned refinement descriptions, and base passive."""
+    affix_dict = detail.get("affix") or {}
+    first_affix = next(iter(affix_dict.values()), {}) if isinstance(affix_dict, dict) else {}
+    if not isinstance(first_affix, dict):
+        return None, [], None
+    passive_name = first_affix.get("name")
+    upgrade_map = first_affix.get("upgrade") or {}
+    refinements = [
+        clean_hoyo_text(upgrade_map.get(str(idx)))
+        for idx in range(5)
+        if upgrade_map.get(str(idx))
+    ]
+    passive_desc = refinements[0] if refinements else (clean_hoyo_text(upgrade_map.get("0")) or None)
+    return passive_name, refinements, passive_desc
+
+
+async def _get_weapon_curve() -> dict[str, float]:
+    """Fetch Lv.90 weapon scaling multipliers from gi.yatta.moe (cached 24h)."""
+    cache_key = "irminsul:yatta:weapon_curve:90"
     cached = await cache.get(cache_key)
     if cached is not None:
         return cached
-
+    curve_90: dict[str, float] = {}
     try:
-        res = await client.get(f"{settings.GENSHIN_API_BASE}/weapon/{weapon_id}")
+        client = get_http_client()
+        res = await client.get(WEAPON_CURVE_URL)
         if res.status_code == 200:
-            data = res.json().get("data")
-            if isinstance(data, dict):
-                await cache.set(cache_key, data, ttl_seconds=WEAPON_DETAIL_TTL)
-                return data
-    except Exception:
-        pass
-    return None
+            curve_90 = (
+                res.json().get("data", {}).get("90", {}).get("curveInfos", {}) or {}
+            )
+    except Exception as exc:
+        logger.warning(f"Failed to fetch Yatta weaponCurve: {exc}")
+    if curve_90:
+        await cache.set(cache_key, curve_90, ttl_seconds=WEAPON_DETAIL_TTL)
+    return curve_90
+
+
+def compute_weapon_stats(
+    detail: dict[str, Any],
+    curve_90: dict[str, float],
+) -> tuple[Optional[str], Optional[str]]:
+    """Compute Lv.1 / Lv.90 Base ATK and Substat strings from Yatta upgrade data."""
+    upgrade = detail.get("upgrade") or {}
+    props = upgrade.get("prop") or []
+    promotes = upgrade.get("promote") or []
+    max_promote_atk = 0.0
+    if promotes and isinstance(promotes[-1], dict):
+        max_promote_atk = float(
+            (promotes[-1].get("addProps") or {}).get("FIGHT_PROP_BASE_ATTACK", 0.0) or 0.0
+        )
+
+    base_atk_str: Optional[str] = None
+    sub_val_str: Optional[str] = None
+
+    for p in props:
+        if not isinstance(p, dict):
+            continue
+        ptype = p.get("propType", "")
+        init_val = float(p.get("initValue", 0.0) or 0.0)
+        ctype = p.get("type", "")
+        mult = float(curve_90.get(ctype, 1.0) or 1.0)
+
+        if ptype == "FIGHT_PROP_BASE_ATTACK" and init_val > 0:
+            lv1 = round(init_val)
+            lv90 = round(init_val * mult + max_promote_atk)
+            base_atk_str = f"{lv1} / {lv90}"
+        elif ptype and ptype != "FIGHT_PROP_BASE_ATTACK" and init_val > 0:
+            if ptype == "FIGHT_PROP_ELEMENT_MASTERY":
+                lv1 = round(init_val)
+                lv90 = round(init_val * mult)
+                sub_val_str = f"{lv1} / {lv90}"
+            else:
+                lv1 = round(init_val * 100, 1)
+                lv90 = round(init_val * mult * 100, 1)
+                sub_val_str = f"{lv1:.1f}% / {lv90:.1f}%"
+
+    return base_atk_str, sub_val_str
 
 
 async def enrich_builds_with_yatta(builds: list[CharacterBuildGuide]) -> list[CharacterBuildGuide]:
@@ -127,9 +203,10 @@ async def enrich_builds_with_yatta(builds: list[CharacterBuildGuide]) -> list[Ch
     if not builds:
         return builds
 
-    weapons_idx, relics_idx = await asyncio.gather(
+    weapons_idx, relics_idx, curve_90 = await asyncio.gather(
         _get_yatta_weapons(),
         _get_yatta_reliquaries(),
+        _get_weapon_curve(),
     )
 
     # Collect unique weapon IDs across top 6 weapons per build to fetch passives concurrently
@@ -157,96 +234,70 @@ async def enrich_builds_with_yatta(builds: list[CharacterBuildGuide]) -> list[Ch
         for w in b.weapons:
             key = _normalize_lookup_key(w.name)
             meta = weapons_idx.get(key)
-            if meta:
-                wid = int(meta["id"])
+            if meta and meta.get("id") is not None:
+                wid = safe_int(meta.get("id"))
                 detail = weapon_details.get(wid, {})
                 icon = meta.get("icon", "")
-                affix_dict = detail.get("affix") or {}
-                first_affix = next(iter(affix_dict.values()), {}) if isinstance(affix_dict, dict) else {}
-                passive_name = first_affix.get("name")
-                passive_desc = clean_hoyo_text((first_affix.get("upgrade") or {}).get("0"))
+                passive_name, refinements, passive_desc = extract_weapon_affix(detail)
+                base_atk_str, sub_val_str = compute_weapon_stats(detail, curve_90)
                 new_weapons.append(
                     w.model_copy(
                         update={
                             "name": meta.get("name", w.name),
-                            "rarity": int(meta.get("rank", w.rarity)),
-                            "image": f"{settings.YATTA_ASSET_BASE}/{icon}.png" if icon else w.image,
+                            "rarity": safe_int(meta.get("rank"), w.rarity),
+                            "image": yatta_icon_url(icon) or w.image,
                             "subStat": SUBSTAT_MAP.get(meta.get("specialProp", "")),
+                            "baseAtk": base_atk_str,
+                            "subStatValue": sub_val_str,
                             "passiveName": passive_name,
                             "description": passive_desc or clean_hoyo_text(detail.get("description")),
+                            "passiveRefinements": refinements,
                         }
                     )
                 )
             else:
                 new_weapons.append(w)
 
+        def resolve_art_fields(
+            art_name: str,
+            fallback_image: str,
+            max_bonuses: Optional[int] = None,
+        ) -> Optional[dict[str, Any]]:
+            a_key = _normalize_lookup_key(art_name)
+            rmeta = relics_idx.get(a_key)
+            if rmeta:
+                icon = rmeta.get("icon", "")
+                affixes = list((rmeta.get("affixList") or {}).values())
+                if max_bonuses is not None:
+                    affixes = affixes[:max_bonuses]
+                levels = [safe_int(lv, 5) for lv in (rmeta.get("levelList") or [5])]
+                return {
+                    "name": rmeta.get("name", art_name),
+                    "rarity": max(levels) if levels else 5,
+                    "image": f"{settings.YATTA_ASSET_BASE}/reliquary/{icon}.png" if icon else fallback_image,
+                    "bonuses": [clean_hoyo_text(a) for a in affixes],
+                }
+            if a_key in GENERIC_SET_FALLBACKS:
+                label, icon, bonus = GENERIC_SET_FALLBACKS[a_key]
+                return {
+                    "name": label,
+                    "rarity": 5,
+                    "image": f"{settings.YATTA_ASSET_BASE}/reliquary/{icon}.png",
+                    "bonuses": [bonus],
+                }
+            return None
+
         new_artifacts = []
-        for art in b.artifacts[:6]:
+        for art in b.artifacts:
             if art.mix:
                 new_mix = []
                 for m in art.mix:
-                    m_key = _normalize_lookup_key(m.name)
-                    rmeta = relics_idx.get(m_key)
-                    if rmeta:
-                        icon = rmeta.get("icon", "")
-                        affixes = list((rmeta.get("affixList") or {}).values())
-                        levels = rmeta.get("levelList") or [5]
-                        new_mix.append(
-                            m.model_copy(
-                                update={
-                                    "name": rmeta.get("name", m.name),
-                                    "rarity": max(levels),
-                                    "image": f"{settings.YATTA_ASSET_BASE}/reliquary/{icon}.png" if icon else m.image,
-                                    "bonuses": [clean_hoyo_text(a) for a in affixes[:1]],
-                                }
-                            )
-                        )
-                    elif m_key in GENERIC_SET_FALLBACKS:
-                        label, icon, bonus = GENERIC_SET_FALLBACKS[m_key]
-                        new_mix.append(
-                            m.model_copy(
-                                update={
-                                    "name": label,
-                                    "rarity": 5,
-                                    "image": f"{settings.YATTA_ASSET_BASE}/reliquary/{icon}.png",
-                                    "bonuses": [bonus],
-                                }
-                            )
-                        )
-                    else:
-                        new_mix.append(m)
+                    upd = resolve_art_fields(m.name, m.image, max_bonuses=1)
+                    new_mix.append(m.model_copy(update=upd) if upd else m)
                 new_artifacts.append(art.model_copy(update={"mix": new_mix}))
             elif art.name:
-                a_key = _normalize_lookup_key(art.name)
-                rmeta = relics_idx.get(a_key)
-                if rmeta:
-                    icon = rmeta.get("icon", "")
-                    affixes = list((rmeta.get("affixList") or {}).values())
-                    levels = rmeta.get("levelList") or [5]
-                    new_artifacts.append(
-                        art.model_copy(
-                            update={
-                                "name": rmeta.get("name", art.name),
-                                "rarity": max(levels),
-                                "image": f"{settings.YATTA_ASSET_BASE}/reliquary/{icon}.png" if icon else art.image,
-                                "bonuses": [clean_hoyo_text(a) for a in affixes],
-                            }
-                        )
-                    )
-                elif a_key in GENERIC_SET_FALLBACKS:
-                    label, icon, bonus = GENERIC_SET_FALLBACKS[a_key]
-                    new_artifacts.append(
-                        art.model_copy(
-                            update={
-                                "name": label,
-                                "rarity": 5,
-                                "image": f"{settings.YATTA_ASSET_BASE}/reliquary/{icon}.png",
-                                "bonuses": [bonus],
-                            }
-                        )
-                    )
-                else:
-                    new_artifacts.append(art)
+                upd = resolve_art_fields(art.name, art.image)
+                new_artifacts.append(art.model_copy(update=upd) if upd else art)
             else:
                 new_artifacts.append(art)
 

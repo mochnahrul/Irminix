@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { connectUid as apiConnectUid, fetchProfile } from "@/services/api";
 import type { PlayerProfile } from "@/types/genshin";
 
@@ -27,19 +27,29 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const loadedUidRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!uid || profile) return;
+    if (!uid || loadedUidRef.current === uid) return;
     let cancelled = false;
     setIsConnecting(true);
+    setError(null);
     fetchProfile(uid)
       .then((data) => {
-        if (!cancelled) setProfile(data);
-      })
-      .catch(() => {
         if (!cancelled) {
-          localStorage.removeItem(UID_STORAGE_KEY);
-          setUid(null);
+          loadedUidRef.current = uid;
+          setProfile(data);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : "Failed to load saved UID.";
+          if (/not found|invalid uid/i.test(msg)) {
+            localStorage.removeItem(UID_STORAGE_KEY);
+            setUid(null);
+          } else {
+            setError(msg);
+          }
         }
       })
       .finally(() => {
@@ -48,7 +58,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [uid, profile]);
+  }, [uid]);
 
   const connectUid = async (rawUid: string) => {
     setError(null);

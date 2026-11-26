@@ -4,8 +4,12 @@ export interface BuildWeapon {
   refine: number;
   image: string;
   subStat?: string | null;
+  baseAtk?: string | null;
+  subStatValue?: string | null;
   passiveName?: string | null;
   description?: string | null;
+  passiveRefinements?: string[];
+  rank?: number | null;
 }
 
 export interface BuildArtifactPiece {
@@ -23,15 +27,27 @@ export interface BuildArtifactOption {
   image: string;
   bonuses?: string[];
   mix?: BuildArtifactPiece[] | null;
+  rank?: number | null;
+}
+
+export interface BuildNoteItem {
+  label: string;
+  note: string;
 }
 
 export interface CharacterBuildGuide {
   role: string;
+  isBest?: boolean;
   weapons: BuildWeapon[];
   artifacts: BuildArtifactOption[];
   mainStats: string[];
   subStats: string[];
   talentPriority: string[];
+  notes?: string[];
+  weaponNotes?: BuildNoteItem[];
+  artifactNotes?: BuildNoteItem[];
+  mainStatNotes?: BuildNoteItem[];
+  subStatNotes?: BuildNoteItem[];
 }
 
 export interface CharacterSummary {
@@ -192,9 +208,12 @@ export interface WeaponItem {
 }
 
 export interface WeaponDetailResponse extends WeaponItem {
+  baseAtk?: string | null;
+  subStatValue?: string | null;
   description: string;
   passiveName?: string | null;
   passiveDescription?: string | null;
+  passiveRefinements?: string[];
 }
 
 export interface ArtifactSetItem {

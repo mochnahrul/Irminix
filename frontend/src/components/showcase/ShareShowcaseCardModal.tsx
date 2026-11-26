@@ -23,6 +23,7 @@ export function ShareShowcaseCardModal({
   onClose,
 }: ShareShowcaseCardModalProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const copyTimerRef = useRef<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -30,10 +31,16 @@ export function ShareShowcaseCardModal({
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
     };
-  }, []);
+  }, [onClose]);
 
   const el = getElementStyle(character.element);
 
@@ -69,13 +76,21 @@ export function ShareShowcaseCardModal({
       `Stats: CR ${character.stats["Crit Rate"] || "—"} | CD ${character.stats["Crit DMG"] || "—"} | ER ${character.stats["Energy Recharge"] || "—"} | EM ${character.stats["Elemental Mastery"] || "—"}`,
       `Ranked #${rank} (Score ${valueScore}) via Irminix`,
     ];
-    await navigator.clipboard.writeText(lines.join("\n"));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopied(true);
+      if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setExportError("Unable to copy to clipboard. Please check browser permissions.");
+    }
   };
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Share Build Card"
       className="fixed inset-0 z-50 !mt-0 flex items-center justify-center bg-ink-primary/55 p-4 backdrop-blur-md"
       onClick={onClose}
     >

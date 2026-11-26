@@ -34,12 +34,19 @@ const ASCENSION_OPTIONS = [
 
 interface FarmingPlannerViewProps {
   characters: CharacterSummary[];
+  initialSubTab?: "daily" | "calculator";
+  initialCharacterId?: string | null;
   onSelectCharacter?: (id: string) => void;
 }
 
-export function FarmingPlannerView({ characters, onSelectCharacter }: FarmingPlannerViewProps) {
+export function FarmingPlannerView({
+  characters,
+  initialSubTab,
+  initialCharacterId,
+  onSelectCharacter,
+}: FarmingPlannerViewProps) {
   const { profile } = useSession();
-  const [subTab, setSubTab] = useState<"daily" | "calculator">("daily");
+  const [subTab, setSubTab] = useState<"daily" | "calculator">(initialSubTab || "daily");
 
   // Daily Farming state
   const [selectedDay, setSelectedDay] = useState<string>("");
@@ -48,7 +55,9 @@ export function FarmingPlannerView({ characters, onSelectCharacter }: FarmingPla
   const [dailyError, setDailyError] = useState<string | null>(null);
 
   // Calculator state
-  const [calcCharId, setCalcCharId] = useState<string>(characters[0]?.id || "arlecchino");
+  const [calcCharId, setCalcCharId] = useState<string>(
+    initialCharacterId || characters[0]?.id || "arlecchino"
+  );
   const [plan, setPlan] = useState<CharacterMaterialPlanResponse | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -66,6 +75,18 @@ export function FarmingPlannerView({ characters, onSelectCharacter }: FarmingPla
     () => new Set((profile?.showcaseCharacters || []).map((c) => c.name.toLowerCase())),
     [profile]
   );
+
+  useEffect(() => {
+    if (initialSubTab) setSubTab(initialSubTab);
+  }, [initialSubTab]);
+
+  useEffect(() => {
+    if (initialCharacterId) {
+      setCalcCharId(initialCharacterId);
+    } else if (characters.length > 0 && !characters.some((c) => c.id === calcCharId)) {
+      setCalcCharId(characters[0].id);
+    }
+  }, [initialCharacterId, characters, calcCharId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,19 +140,19 @@ export function FarmingPlannerView({ characters, onSelectCharacter }: FarmingPla
     const map = new Map<number, MaterialBrief>();
     let totalMora = 0;
 
-    const addItem = (item: MaterialBrief, mult = 1) => {
+    const addItem = (item: MaterialBrief) => {
       const existing = map.get(item.id);
       if (existing) {
-        existing.count += item.count * mult;
+        existing.count += item.count;
       } else {
-        map.set(item.id, { ...item, count: item.count * mult });
+        map.set(item.id, { ...item });
       }
     };
 
     for (const stage of plan.ascensionStages) {
       if (stage.promoteLevel > ascFrom && stage.promoteLevel <= ascTo) {
         totalMora += stage.coinCost;
-        for (const it of stage.items) addItem(it, 1);
+        for (const it of stage.items) addItem(it);
       }
     }
 
@@ -144,7 +165,7 @@ export function FarmingPlannerView({ characters, onSelectCharacter }: FarmingPla
       for (const stage of plan.talentStages) {
         if (stage.level > from && stage.level <= to) {
           totalMora += stage.coinCost;
-          for (const it of stage.items) addItem(it, 1);
+          for (const it of stage.items) addItem(it);
         }
       }
     }

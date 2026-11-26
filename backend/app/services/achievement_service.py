@@ -1,10 +1,9 @@
-import json
 import logging
 from typing import Any
-import httpx
-from google import genai
 from app.core.cache import cache
 from app.core.config import settings
+from app.core.constants import safe_int
+from app.core.gemini import GEMINI_MODEL_ID, generate_gemini_json
 from app.core.http import get_http_client
 from app.schemas.achievement import (
     AchievementCatalogResponse,
@@ -37,25 +36,25 @@ async def get_achievement_catalog() -> AchievementCatalogResponse:
                 raw_cats: dict[str, Any] = res.json().get("data", {})
                 sorted_cats = sorted(
                     raw_cats.values(),
-                    key=lambda c: int(c.get("order", 999)),
+                    key=lambda c: safe_int(c.get("order"), 999),
                 )
                 for cat in sorted_cats:
-                    cat_id = str(cat.get("id", ""))
-                    cat_name = cat.get("name", "General")
-                    cat_order = int(cat.get("order", 0))
+                    cat_id = str(cat.get("id") or "")
+                    cat_name = cat.get("name") or "General"
+                    cat_order = safe_int(cat.get("order"), 0)
                     ach_map: dict[str, Any] = cat.get("achievementList") or {}
                     cat_count = 0
 
                     sorted_achs = sorted(
                         ach_map.values(),
-                        key=lambda a: int(a.get("order", 9999)),
+                        key=lambda a: safe_int(a.get("order"), 9999),
                     )
                     for ach in sorted_achs:
                         version = str(ach.get("version") or "")
                         for tier in ach.get("details") or []:
-                            tier_id = int(tier.get("id", ach.get("id", 0)))
+                            tier_id = safe_int(tier.get("id"), safe_int(ach.get("id"), 0))
                             rewards = tier.get("rewards") or {}
-                            primo = int((rewards.get("201") or {}).get("count", 5))
+                            primo = safe_int((rewards.get("201") or {}).get("count"), 5)
                             items.append(
                                 AchievementItem(
                                     id=tier_id,
@@ -120,32 +119,27 @@ async def generate_achievement_guide(
         await cache.set(cache_key, result, ttl_seconds=GUIDE_TTL)
         return result
 
-    try:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        prompt = (
-            "You are a concise Genshin Impact achievement guide.\n"
-            f"Achievement: {req.title}\n"
-            f"Category: {req.categoryName}\n"
-            f"Description: {req.description}\n\n"
-            "Return ONLY valid JSON matching:\n"
-            '{"steps": ["step 1", "step 2", "step 3"], "tip": "one short practical tip"}'
-        )
-        res = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
-        )
-        text = (res.text or "").strip()
-        if text.startswith("```"):
-            text = text.strip("`").removeprefix("json").strip()
-        parsed = json.loads(text)
-        result = AchievementGuideResponse(
-            title=req.title,
-            steps=parsed.get("steps", [])[:4],
-            tip=parsed.get("tip", ""),
-            poweredBy="gemini-3.8-flash",
-        )
-        await cache.set(cache_key, result, ttl_seconds=GUIDE_TTL)
-        return result
-    except Exception as exc:
-        logger.warning(f"Achievement guide Gemini fallback triggered: {exc}")
-        return _deterministic_guide(req)
+    prompt = (
+        "You are a concise Genshin Impact achievement guide.\n"
+        f"Achievement: {req.title}\n"
+        f"Category: {req.categoryName}\n"
+        f"Description: {req.description}\n\n"
+        "Return ONLY valid JSON matching:\n"
+        '{"steps": ["step 1", "step 2", "step 3"], "tip": "one short practical tip"}'
+    )
+    parsed = await generate_gemini_json(prompt)
+    if parsed is not None:
+        raw_steps = parsed.get("steps")
+        steps = [str(s) for s in raw_steps[:4]] if isinstance(raw_steps, list) else []
+        tip = parsed.get("tip")
+        if steps:
+            result = AchievementGuideResponse(
+                title=req.title,
+                steps=steps,
+                tip=str(tip) if tip is not None else "",
+                poweredBy=GEMINI_MODEL_ID,
+            )
+            await cache.set(cache_key, result, ttl_seconds=GUIDE_TTL)
+            return result
+
+    return _deterministic_guide(req)

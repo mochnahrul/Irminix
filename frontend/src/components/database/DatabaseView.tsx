@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, Flame, Layers, Search, Sparkles, Swords, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, Flame, Layers, Search, Swords, Users, X, Zap } from "lucide-react";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { RarityBadge } from "@/components/ui/RarityBadge";
+import { RefinementSelector } from "@/components/ui/RefinementSelector";
 import { Badge } from "@/components/ui/badge";
 import { cn, getElementStyle, getRarityAccent, getRarityBackdrop } from "@/lib/utils";
 import {
@@ -19,6 +20,17 @@ import type {
 } from "@/types/genshin";
 
 const WEAPON_TYPES = ["All", "Sword", "Claymore", "Polearm", "Bow", "Catalyst"] as const;
+
+const RESONANCE_ELEMENT_MAP: Record<string, { element: string; requirement: string }> = {
+  "fervent flames": { element: "Pyro", requirement: "2× Pyro in Party" },
+  "soothing water": { element: "Hydro", requirement: "2× Hydro in Party" },
+  "impetuous winds": { element: "Anemo", requirement: "2× Anemo in Party" },
+  "high voltage": { element: "Electro", requirement: "2× Electro in Party" },
+  "sprawling greenery": { element: "Dendro", requirement: "2× Dendro in Party" },
+  "shattering ice": { element: "Cryo", requirement: "2× Cryo in Party" },
+  "enduring rock": { element: "Geo", requirement: "2× Geo in Party" },
+  "protective canopy": { element: "All", requirement: "4 Unique Elements" },
+};
 
 interface DatabaseViewProps {
   onSelectCharacter?: (id: string) => void;
@@ -152,40 +164,28 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponDetailResponse | null>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactSetItem | null>(null);
   const [loadingWeaponDetail, setLoadingWeaponDetail] = useState(false);
+  const [weaponRefineIdx, setWeaponRefineIdx] = useState(0);
+  const [retryTick, setRetryTick] = useState(0);
+  const weaponReqRef = useRef(0);
 
   useEffect(() => {
     if (!selectedWeapon && !selectedArtifact) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedWeapon(null);
+        setSelectedArtifact(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
     };
   }, [selectedWeapon, selectedArtifact]);
 
-  const loadCurrentTab = () => {
-    setLoading(true);
-    setError(null);
-    if (subTab === "weapons" && weapons.length === 0) {
-      return fetchDatabaseWeapons()
-        .then(setWeapons)
-        .catch((err) => setError(err instanceof Error ? err.message : "Failed to load weapons."))
-        .finally(() => setLoading(false));
-    }
-    if (subTab === "artifacts" && artifacts.length === 0) {
-      return fetchDatabaseArtifacts()
-        .then(setArtifacts)
-        .catch((err) => setError(err instanceof Error ? err.message : "Failed to load artifacts."))
-        .finally(() => setLoading(false));
-    }
-    if (subTab === "elements" && !elementsData) {
-      return fetchDatabaseElements()
-        .then(setElementsData)
-        .catch((err) => setError(err instanceof Error ? err.message : "Failed to load elements."))
-        .finally(() => setLoading(false));
-    }
-    setLoading(false);
-    return Promise.resolve();
-  };
+  const loadCurrentTab = () => setRetryTick((t) => t + 1);
 
   useEffect(() => {
     let cancelled = false;
@@ -236,16 +236,26 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [subTab, weapons.length, artifacts.length, elementsData]);
+  }, [subTab, weapons.length, artifacts.length, elementsData, retryTick]);
 
   const handleOpenWeapon = async (w: WeaponItem) => {
+    const reqId = ++weaponReqRef.current;
     setLoadingWeaponDetail(true);
+    setWeaponRefineIdx(0);
     setSelectedWeapon({ ...w, description: "" });
     try {
       const detail = await fetchDatabaseWeaponDetail(w.id);
-      setSelectedWeapon(detail);
+      if (weaponReqRef.current === reqId) {
+        setSelectedWeapon(detail);
+      }
+    } catch (err) {
+      if (weaponReqRef.current === reqId) {
+        setError(err instanceof Error ? err.message : "Failed to load weapon detail.");
+      }
     } finally {
-      setLoadingWeaponDetail(false);
+      if (weaponReqRef.current === reqId) {
+        setLoadingWeaponDetail(false);
+      }
     }
   };
 
@@ -530,9 +540,14 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
         <div className="space-y-8">
           {/* Elemental Reactions */}
           <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-irminsul" />
-              <h2 className="font-serif text-2xl text-ink-primary">Elemental Reactions</h2>
+            <div>
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-irminsul" />
+                <h2 className="font-serif text-2xl text-ink-primary">Elemental Reactions</h2>
+              </div>
+              <p className="mt-0.5 text-xs text-ink-secondary">
+                Combat effects triggered by combining two or more elemental auras on an enemy, scaling with Level, EM, or Crit.
+              </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {elementsData?.reactions.map((rx) => {
@@ -587,21 +602,59 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
           {/* Elemental Resonances */}
           {elementsData && elementsData.resonances.length > 0 && (
             <section className="space-y-3">
-              <h2 className="font-serif text-2xl text-ink-primary">Elemental Resonances</h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                {elementsData.resonances.map((res) => (
-                  <div
-                    key={res.id}
-                    className="rounded-2xl border border-border bg-surface p-4 shadow-card transition-all duration-200 hover:border-border-focus hover:shadow-hover sm:p-5"
-                  >
-                    <h3 className="font-heading text-sm font-semibold text-ink-primary">
-                      {res.name}
-                    </h3>
-                    <p className="mt-1.5 text-xs leading-relaxed text-ink-secondary">
-                      {res.description}
-                    </p>
-                  </div>
-                ))}
+              <div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-irminsul" />
+                  <h2 className="font-serif text-2xl text-ink-primary">Elemental Resonances</h2>
+                </div>
+                <p className="mt-0.5 text-xs text-ink-secondary">
+                  Party-wide passive buffs unlocked automatically when your 4-character team includes 2 of the same element (or 4 unique elements).
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {elementsData.resonances.map((res) => {
+                  const meta = RESONANCE_ELEMENT_MAP[res.name.trim().toLowerCase()];
+                  const isAny = !meta || meta.element === "All";
+                  const st = !isAny ? getElementStyle(meta.element) : null;
+                  return (
+                    <div
+                      key={res.id}
+                      className="flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-border-focus hover:shadow-hover"
+                    >
+                      <div className={cn("h-1 w-full shrink-0", st ? st.dot : "bg-irminsul")} />
+                      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">
+                        <div>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            {st && meta ? (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                  st.badgeBg,
+                                  st.badgeText,
+                                  st.border
+                                )}
+                              >
+                                <span className={cn("h-1.5 w-1.5 rounded-full", st.dot)} />
+                                {meta.element}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[#B8D8CE] bg-irminsul-soft px-2 py-0.5 text-[10px] font-medium text-irminsul">
+                                Multi-Element
+                              </span>
+                            )}
+                            <Badge>{meta?.requirement || "Party Buff"}</Badge>
+                          </div>
+                          <h3 className="mt-3 font-heading text-base font-semibold text-ink-primary">
+                            {res.name}
+                          </h3>
+                          <p className="mt-1.5 text-xs leading-relaxed text-ink-secondary">
+                            {res.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -611,6 +664,9 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
       {/* Weapon Detail Modal */}
       {selectedWeapon && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedWeapon.name}
           className="fixed inset-0 z-50 !mt-0 flex items-center justify-center bg-ink-primary/55 p-4 backdrop-blur-md"
           onClick={() => setSelectedWeapon(null)}
         >
@@ -660,14 +716,43 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
               <p className="mt-4 text-xs text-ink-dim">Loading weapon passive...</p>
             ) : (
               <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
+                {(selectedWeapon.baseAtk || selectedWeapon.subStatValue) && (
+                  <div className="divide-y divide-border-subtle rounded-xl border border-border-subtle bg-canvas/70 px-3.5 py-1.5 text-xs">
+                    {selectedWeapon.baseAtk && (
+                      <div className="flex items-center justify-between py-1.5">
+                        <span className="text-ink-secondary">Base ATK (Lv.1 / 90)</span>
+                        <span className="font-mono font-semibold text-ink-primary">
+                          {selectedWeapon.baseAtk}
+                        </span>
+                      </div>
+                    )}
+                    {selectedWeapon.subStat && selectedWeapon.subStatValue && (
+                      <div className="flex items-center justify-between py-1.5">
+                        <span className="text-ink-secondary">{selectedWeapon.subStat}</span>
+                        <span className="font-mono font-semibold text-irminsul">
+                          {selectedWeapon.subStatValue}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {selectedWeapon.passiveName && (
-                  <div className="rounded-xl border border-[#B8D8CE] bg-irminsul-soft/50 p-3.5">
-                    <p className="font-heading text-xs font-semibold text-irminsul">
-                      Passive (R1): {selectedWeapon.passiveName}
-                    </p>
-                    <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-ink-primary">
-                      {selectedWeapon.passiveDescription}
-                    </p>
+                  <div className="space-y-2.5 rounded-xl border border-[#B8D8CE] bg-irminsul-soft/50 p-3.5">
+                    <RefinementSelector
+                      count={selectedWeapon.passiveRefinements?.length ?? 0}
+                      activeIdx={weaponRefineIdx}
+                      onSelect={setWeaponRefineIdx}
+                      className="bg-surface/90"
+                    />
+                    <div>
+                      <p className="font-heading text-xs font-semibold text-irminsul">
+                        Passive (R{weaponRefineIdx + 1}): {selectedWeapon.passiveName}
+                      </p>
+                      <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-ink-primary">
+                        {selectedWeapon.passiveRefinements?.[weaponRefineIdx] ||
+                          selectedWeapon.passiveDescription}
+                      </p>
+                    </div>
                   </div>
                 )}
                 {selectedWeapon.description && (
@@ -692,6 +777,9 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
       {/* Artifact Set Detail Modal */}
       {selectedArtifact && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedArtifact.name}
           className="fixed inset-0 z-50 !mt-0 flex items-center justify-center bg-ink-primary/55 p-4 backdrop-blur-md"
           onClick={() => setSelectedArtifact(null)}
         >

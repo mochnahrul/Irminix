@@ -23,9 +23,12 @@ class WeaponItem(BaseModel):
 
 
 class WeaponDetailResponse(WeaponItem):
+    baseAtk: Optional[str] = None
+    subStatValue: Optional[str] = None
     description: str = ""
     passiveName: Optional[str] = None
     passiveDescription: Optional[str] = None
+    passiveRefinements: list[str] = []
 
 
 class ArtifactSetItem(BaseModel):

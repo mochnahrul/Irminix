@@ -95,7 +95,7 @@ async def _build_character_material_map(cache_key: str) -> dict[int, list[Charac
         if name:
             by_slug[slugify_name(name)] = str(av_id)
 
-    sem = asyncio.Semaphore(20)
+    sem = asyncio.Semaphore(8)
     mat_map: dict[int, list[CharacterSummary]] = {}
 
     async def load_char_mats(ch: CharacterSummary) -> None:
@@ -343,22 +343,12 @@ async def analyze_team_comp(character_ids: list[str]) -> TeamAnalyzeResponse:
         elif all(req.lower() in present_set for req in rx.elements):
             triggerable_reactions.append(rx)
 
+    from app.services.tierlist_service import infer_role_group
+
     role_counts: dict[str, int] = {"Main DPS": 0, "Sub DPS": 0, "Support": 0}
     for ch in selected:
-        override = TIER_OVERRIDES.get(ch.id.lower()) or TIER_OVERRIDES.get(slugify_name(ch.name))
-        if override and override[1] in role_counts:
-            role_counts[override[1]] += 1
-            continue
-
-        joined = " ".join(ch.roles).lower().replace("-", " ")
-        if "sub" in joined or "off field" in joined:
-            role_counts["Sub DPS"] += 1
-        elif "support" in joined or "healer" in joined or "shield" in joined:
-            role_counts["Support"] += 1
-        elif "main" in joined or "on field" in joined or "dps" in joined:
-            role_counts["Main DPS"] += 1
-        else:
-            role_counts["Support"] += 1
+        group = infer_role_group(ch)
+        role_counts[group if group in role_counts else "Support"] += 1
 
     notes: list[str] = []
     if len(selected) < 4:

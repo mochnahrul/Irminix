@@ -446,7 +446,7 @@ export function UidShowcaseView({
             <Award className="h-3 w-3 text-irminsul" />
             {profile.finishAchievementNum} Achievements
           </Badge>
-          {profile.towerFloorIndex && (
+          {profile.towerFloorIndex != null && profile.towerFloorIndex > 0 && (
             <Badge>
               Abyss {profile.towerFloorIndex}-{profile.towerLevelIndex}
               {profile.towerStarIndex != null ? ` (${profile.towerStarIndex}★)` : ""}

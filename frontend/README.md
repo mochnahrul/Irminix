@@ -14,3 +14,9 @@ Copy `.env.example` to `.env`:
 ```env
 VITE_API_URL=http://127.0.0.1:8000
 ```
+
+## Notes
+
+- All API types live in `src/types/genshin.ts` and requests go through `src/services/api.ts` (2-minute in-memory TTL cache).
+- Connected UID session & Achievement Tracker completion checklists are persisted in `localStorage`.
+- See [Frontend Technical Guide](../docs/FRONTEND_TECH.md) for component architecture and manual UI mappings (`RESONANCE_ELEMENT_MAP`).

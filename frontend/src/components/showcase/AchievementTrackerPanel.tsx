@@ -93,6 +93,8 @@ export function AchievementTrackerPanel({
         categoryName: item.categoryName,
       });
       setGuides((prev) => ({ ...prev, [item.id]: guide }));
+    } catch {
+      setError("Failed to generate achievement guide. Please try again.");
     } finally {
       setLoadingGuideId(null);
     }

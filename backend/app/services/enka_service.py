@@ -6,6 +6,7 @@ import httpx
 from fastapi import HTTPException
 from app.core.cache import cache
 from app.core.config import settings
+from app.core.constants import ELEMENT_MAP, safe_int, yatta_icon_url
 from app.core.http import get_http_client
 from app.schemas.auth import (
     PlayerProfile,
@@ -21,16 +22,6 @@ PLAYER_CACHE_TTL = 60 * 5  # 5 minutes
 
 ENKA_CHARS_URL = "https://raw.githubusercontent.com/EnkaNetwork/API-docs/master/store/characters.json"
 ENKA_LOC_URL = "https://raw.githubusercontent.com/EnkaNetwork/API-docs/master/store/loc.json"
-
-ELEMENT_MAP = {
-    "Fire": "Pyro",
-    "Water": "Hydro",
-    "Electric": "Electro",
-    "Ice": "Cryo",
-    "Wind": "Anemo",
-    "Rock": "Geo",
-    "Grass": "Dendro",
-}
 
 EQUIP_TYPE_MAP = {
     "EQUIP_BRACER": "Flower",
@@ -134,7 +125,8 @@ async def _get_metadata_stores() -> tuple[dict[str, Any], dict[str, str], dict[s
         yatta_relics = yr_res.get("data", {}).get("items", {})
 
     stores = (chars_data, loc_en, yatta_avatars, yatta_weapons, yatta_relics)
-    await cache.set(cache_key, stores, ttl_seconds=ENKA_STORE_TTL)
+    if any(stores):
+        await cache.set(cache_key, stores, ttl_seconds=ENKA_STORE_TTL)
     return stores
 
 
@@ -178,12 +170,12 @@ def _parse_avatar(
         icon_url = None
 
     prop_map = avatar.get("propMap", {})
-    level = int(prop_map.get("4001", {}).get("val", 1))
-    friendship = int(avatar.get("fetterInfo", {}).get("expLevel", 1))
-    constellations = len(avatar.get("talentIdList", []))
+    level = safe_int((prop_map.get("4001") or {}).get("val"), 1)
+    friendship = safe_int((avatar.get("fetterInfo") or {}).get("expLevel"), 1)
+    constellations = len(avatar.get("talentIdList") or [])
 
-    skill_map = avatar.get("skillLevelMap", {})
-    talent_levels = [int(v) for v in skill_map.values()]
+    skill_map = avatar.get("skillLevelMap") or {}
+    talent_levels = [safe_int(v, 1) for v in skill_map.values()]
 
     fight_prop = avatar.get("fightPropMap", {})
     stats = {
@@ -208,14 +200,15 @@ def _parse_avatar(
 
         if item_type == "ITEM_WEAPON":
             w_info = equip.get("weapon", {})
-            affix_map = w_info.get("affixMap", {})
-            refinement = (next(iter(affix_map.values()), 0)) + 1 if affix_map else 1
-            w_stats = flat.get("weaponStats", [])
-            base_atk = int(w_stats[0].get("statValue", 0)) if w_stats else None
+            affix_map = w_info.get("affixMap") or {}
+            first_affix_val = safe_int(next(iter(affix_map.values()), 0), 0) if affix_map else 0
+            refinement = first_affix_val + 1 if affix_map else 1
+            w_stats = flat.get("weaponStats") or []
+            base_atk = safe_int(w_stats[0].get("statValue"), 0) if w_stats else None
             sub_stat_str = None
             if len(w_stats) > 1:
                 sp = w_stats[1].get("appendPropId", "")
-                sv = w_stats[1].get("statValue", 0)
+                sv = float(w_stats[1].get("statValue") or 0)
                 sub_stat_str = f"{STAT_LABEL_MAP.get(sp, sp)} {_format_stat_value(sp, sv)}"
 
             yatta_w = yatta_weapons.get(item_id, {})
@@ -278,8 +271,8 @@ def _parse_avatar(
                     slot=slot_name,
                     name=art_name,
                     setName=set_name,
-                    rarity=int(flat.get("rankLevel", 5)),
-                    level=max(0, int(reliquary.get("level", 1)) - 1),
+                    rarity=safe_int(flat.get("rankLevel"), 5),
+                    level=max(0, safe_int(reliquary.get("level"), 1) - 1),
                     mainStat=STAT_LABEL_MAP.get(main_prop, main_prop),
                     mainStatValue=_format_stat_value(main_prop, main_val),
                     subStats=substats_parsed,
@@ -337,20 +330,24 @@ async def fetch_player_showcase(uid: str, force_refresh: bool = False) -> Player
     if res.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Enka.Network returned status {res.status_code}.")
 
-    payload = res.json()
-    player_info = payload.get("playerInfo", {})
+    try:
+        payload = res.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Invalid JSON response from Enka.Network.") from exc
+
+    player_info = payload.get("playerInfo") or {}
     if not player_info:
         raise HTTPException(status_code=404, detail="Player profile is unavailable.")
 
     chars_meta, loc_en, yatta_avatars, yatta_weapons, yatta_relics = await _get_metadata_stores()
-    avatar_list = payload.get("avatarInfoList", [])
+    avatar_list = payload.get("avatarInfoList") or []
     showcase = [
         _parse_avatar(av, chars_meta, loc_en, yatta_avatars, yatta_weapons, yatta_relics)
         for av in avatar_list
     ]
 
-    ttl = int(payload.get("ttl", PLAYER_CACHE_TTL))
-    profile_pic_id = str(player_info.get("profilePicture", {}).get("avatarId", ""))
+    ttl = safe_int(payload.get("ttl"), PLAYER_CACHE_TTL)
+    profile_pic_id = str((player_info.get("profilePicture") or {}).get("avatarId", ""))
     yatta_pic_icon = yatta_avatars.get(profile_pic_id, {}).get("icon", "")
     pic_side = chars_meta.get(profile_pic_id, {}).get("SideIconName", "")
     if yatta_pic_icon:
@@ -362,11 +359,11 @@ async def fetch_player_showcase(uid: str, force_refresh: bool = False) -> Player
 
     profile = PlayerProfile(
         uid=clean_uid,
-        nickname=player_info.get("nickname", f"Traveler {clean_uid}"),
-        level=int(player_info.get("level", 1)),
-        worldLevel=int(player_info.get("worldLevel", 0)),
-        signature=player_info.get("signature", ""),
-        finishAchievementNum=int(player_info.get("finishAchievementNum", 0)),
+        nickname=player_info.get("nickname") or f"Traveler {clean_uid}",
+        level=safe_int(player_info.get("level"), 1),
+        worldLevel=safe_int(player_info.get("worldLevel"), 0),
+        signature=player_info.get("signature") or "",
+        finishAchievementNum=safe_int(player_info.get("finishAchievementNum"), 0),
         towerFloorIndex=player_info.get("towerFloorIndex"),
         towerLevelIndex=player_info.get("towerLevelIndex"),
         towerStarIndex=player_info.get("towerStarIndex"),

@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export interface ElementStyle {
+interface ElementStyle {
   badgeBg: string;
   badgeText: string;
   border: string;
@@ -14,7 +14,7 @@ export interface ElementStyle {
 }
 
 /** Calm, desaturated botanical/mineral palette for Genshin Visions on light paper. */
-export const ELEMENT_STYLES: Record<string, ElementStyle> = {
+const ELEMENT_STYLES: Record<string, ElementStyle> = {
   Pyro: {
     badgeBg: "bg-[#FBF0ED]",
     badgeText: "text-[#9A3B26]",

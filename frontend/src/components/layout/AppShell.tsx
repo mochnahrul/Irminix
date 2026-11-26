@@ -15,7 +15,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-canvas text-ink-primary">
+    <div className="relative flex min-h-screen flex-col overflow-x-clip bg-canvas text-ink-primary">
       {/* Subtle warm botanical ambient wash at top — calm, non-intrusive */}
       <div
         aria-hidden="true"

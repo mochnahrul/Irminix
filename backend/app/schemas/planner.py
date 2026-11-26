@@ -1,4 +1,3 @@
-from typing import Optional
 from pydantic import BaseModel, Field
 from app.schemas.character import CharacterSummary
 from app.schemas.database import ElementalReactionItem, ElementalResonanceItem

@@ -2,9 +2,9 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class VisionInfo(BaseModel):
-    name: str
-    image: str
+class BuildNoteItem(BaseModel):
+    label: str
+    note: str
 
 
 class BuildWeapon(BaseModel):
@@ -13,8 +13,12 @@ class BuildWeapon(BaseModel):
     refine: int = 0
     image: str = ""
     subStat: Optional[str] = None
+    baseAtk: Optional[str] = None
+    subStatValue: Optional[str] = None
     passiveName: Optional[str] = None
     description: Optional[str] = None
+    passiveRefinements: list[str] = []
+    rank: Optional[int] = None
 
 
 class BuildArtifactPiece(BaseModel):
@@ -32,15 +36,22 @@ class BuildArtifactOption(BaseModel):
     image: str = ""
     bonuses: list[str] = []
     mix: Optional[list[BuildArtifactPiece]] = None
+    rank: Optional[int] = None
 
 
 class CharacterBuildGuide(BaseModel):
     role: str
+    isBest: bool = False
     weapons: list[BuildWeapon] = []
     artifacts: list[BuildArtifactOption] = []
     mainStats: list[str] = []
     subStats: list[str] = []
     talentPriority: list[str] = []
+    notes: list[str] = []
+    weaponNotes: list[BuildNoteItem] = []
+    artifactNotes: list[BuildNoteItem] = []
+    mainStatNotes: list[BuildNoteItem] = []
+    subStatNotes: list[BuildNoteItem] = []
 
 
 class CharacterSummary(BaseModel):

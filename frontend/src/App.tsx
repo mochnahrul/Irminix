@@ -22,6 +22,10 @@ function IrminsulAppContent() {
     name: string;
     role?: string;
   } | null>(null);
+  const [plannerTarget, setPlannerTarget] = useState<{
+    characterId: string;
+    subTab: "daily" | "calculator";
+  } | null>(null);
   const [characters, setCharacters] = useState<CharacterSummary[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
 
@@ -42,6 +46,11 @@ function IrminsulAppContent() {
     setActiveTab("advisor");
   };
 
+  const openCalculatorFor = (characterId: string) => {
+    setPlannerTarget({ characterId, subTab: "calculator" });
+    setActiveTab("planner");
+  };
+
   return (
     <AppShell
       activeTab={activeTab}
@@ -54,6 +63,7 @@ function IrminsulAppContent() {
             characterId={selectedCharacterId}
             onBack={() => setSelectedCharacterId(null)}
             onOpenAdvisor={openAdvisorFor}
+            onOpenCalculator={openCalculatorFor}
           />
         ) : (
           <CharacterCodexView
@@ -85,6 +95,8 @@ function IrminsulAppContent() {
       {activeTab === "planner" && (
         <FarmingPlannerView
           characters={characters}
+          initialSubTab={plannerTarget?.subTab}
+          initialCharacterId={plannerTarget?.characterId}
           onSelectCharacter={(id) => {
             setSelectedCharacterId(id);
             setActiveTab("codex");

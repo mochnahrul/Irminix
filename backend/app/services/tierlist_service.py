@@ -111,13 +111,23 @@ TIER_OVERRIDES: dict[str, tuple[str, str]] = {
 }
 
 
-def _infer_role_group(char: CharacterSummary) -> str:
-    joined = " ".join(char.roles).upper()
+def infer_role_group(char: CharacterSummary) -> str:
+    """Infer Main DPS / Sub DPS / Support from TIER_OVERRIDES or character roles."""
+    override = TIER_OVERRIDES.get(char.id.lower())
+    if override:
+        return override[1]
+    joined = " ".join(char.roles).upper().replace("-", " ")
+    if "SUB" in joined or "OFF FIELD" in joined:
+        return "Sub DPS"
     if "SUPPORT" in joined or "HEALER" in joined or "SHIELD" in joined:
         return "Support"
-    if "OFF-FIELD" in joined or "SUB" in joined:
-        return "Sub DPS"
-    return "Main DPS"
+    if "MAIN" in joined or "ON FIELD" in joined or "DPS" in joined:
+        return "Main DPS"
+    return "Support"
+
+
+def _infer_role_group(char: CharacterSummary) -> str:
+    return infer_role_group(char)
 
 
 async def get_tier_list() -> TierListResponse:

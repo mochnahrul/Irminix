@@ -24,7 +24,7 @@ gcloud run deploy irminix-api `
   --memory 512Mi `
   --cpu 1 `
   --timeout 60 `
-  --set-env-vars "ENVIRONMENT=production,ENKA_USER_AGENT=Irminix/1.0,FRONTEND_URL=https://your-app.vercel.app" `
+  --set-env-vars "ENKA_USER_AGENT=Irminix/1.0,FRONTEND_URL=https://your-app.vercel.app" `
   --set-env-vars "GEMINI_API_KEY=your_gemini_api_key_here"
 ```
 
@@ -33,6 +33,32 @@ gcloud run deploy irminix-api `
 - `--memory 512Mi`: Comfortably holds the in-memory `TTLCache` (catalog, Yatta indexes, Enka profiles, achievements) without OOMs.
 - After deployment, copy the generated Cloud Run URL (e.g., `https://irminix-api-xxxx-as.a.run.app`).
 - Verify health: `https://irminix-api-xxxx-as.a.run.app/health`.
+
+### Updating an Existing Backend Deployment (Redeploy)
+
+Whenever you push code changes to `backend/` (for example, updating `TIER_OVERRIDES` in `tierlist_service.py` or fixing a service):
+
+```powershell
+cd backend
+
+# Ensure you are on the right GCP project
+gcloud config set project YOUR_PROJECT_ID
+
+# Rebuild & deploy new revision (keeps existing env vars intact)
+gcloud run deploy irminix-api `
+  --source . `
+  --region asia-southeast1
+```
+
+- **Updating environment variables only** (without rebuilding code):
+  ```powershell
+  gcloud run services update irminix-api `
+    --region asia-southeast1 `
+    --update-env-vars "KEY=VALUE"
+  ```
+- **Verify the new revision** after deploy:
+  - Check `/health` (and confirm `cache.active_entries` resets on the new revision).
+  - If you need to clear in-memory caches on a running revision without redeploying, call `POST /api/cache/clear`.
 
 ---
 

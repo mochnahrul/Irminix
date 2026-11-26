@@ -168,7 +168,11 @@ def _deterministic_advisor(
         improvements.append("Build is well-balanced; fine-tune substat rolls via Artifact Strongbox.")
 
     if weapon_lv < 90:
-        next_farm = f"Weapon Ascension Materials for {weapon_name} (Lv.90)"
+        next_farm = (
+            f"Weapon Ascension Materials for {weapon_name} (Lv.90)"
+            if weapon_name
+            else f"Equip and ascend a recommended weapon for {character.name} (Lv.90)"
+        )
     elif top2_talent_avg < talent_target:
         next_farm = f"Talent Books for {character.name} (Lv.{talent_target}+)"
     elif not has_rec_4pc and top_artifact:
@@ -210,9 +214,18 @@ async def generate_build_advice(
     character: CharacterDetail,
     showcase: Optional[ShowcaseCharacter] = None,
 ) -> BuildAdvisorResponse:
-    """Analyze a character build with Gemini 3.8 Flash, falling back cleanly if unavailable."""
+    """Analyze a character build with Gemini 2.5 Flash, falling back cleanly if unavailable."""
+    from app.core.gemini import GEMINI_MODEL_ID, generate_gemini_json
+
     role = req.role or (character.builds[0].role if character.builds else "DPS")
-    cache_key = f"irminsul:advisor:{character.id}:{req.uid or 'guest'}:{role}:{req.tone}"
+    showcase_sig = (
+        f"{showcase.level}:{showcase.weapon.name if showcase.weapon else 'none'}:"
+        f"{showcase.weapon.level if showcase.weapon else 0}:{len(showcase.artifacts)}:"
+        f"{sum(showcase.talentLevels[:3])}"
+        if showcase
+        else "no_showcase"
+    )
+    cache_key = f"irminsul:advisor:{character.id}:{req.uid or 'guest'}:{role}:{req.tone}:{showcase_sig}"
 
     cached = await cache.get(cache_key)
     if cached is not None:
@@ -223,58 +236,60 @@ async def generate_build_advice(
         await cache.set(cache_key, result, ttl_seconds=ADVISOR_TTL)
         return result
 
-    try:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        prompt_context = {
-            "character": character.name,
-            "vision": character.vision,
-            "weaponType": character.weapon,
-            "targetRole": role,
-            "tone": req.tone,
-            "curatedGuide": character.builds[0].model_dump() if character.builds else None,
-            "playerShowcase": showcase.model_dump() if showcase else None,
-        }
-        prompt = (
-            "You are the Irminsul Archive Scholar, a calm, precise Genshin Impact theorycrafter.\n"
-            "Analyze the character build data below and return ONLY valid JSON matching this schema:\n"
-            "{\n"
-            '  "overallGrade": "S|A|B|C",\n'
-            '  "headline": "concise title",\n'
-            '  "summary": "2-3 sentence calm, actionable assessment",\n'
-            '  "strengths": ["point 1", "point 2"],\n'
-            '  "improvements": ["point 1", "point 2"],\n'
-            '  "recommendedNextFarm": "specific domain or boss",\n'
-            '  "dimensions": [\n'
-            '    {"label": "Weapon Fit", "score": 0-100},\n'
-            '    {"label": "Artifact CV", "score": 0-100},\n'
-            '    {"label": "Talents", "score": 0-100},\n'
-            '    {"label": "ER Balance", "score": 0-100},\n'
-            '    {"label": "Team Synergy", "score": 0-100}\n'
-            "  ]\n"
-            "}\n"
-            f"Data:\n{json.dumps(prompt_context, default=str)[:4500]}"
-        )
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
-        )
-        text = (response.text or "").strip()
-        if text.startswith("```"):
-            text = text.strip("`").removeprefix("json").strip()
-        parsed = json.loads(text)
-        result = BuildAdvisorResponse(
-            characterName=character.name,
-            overallGrade=parsed.get("overallGrade", "A"),
-            headline=parsed.get("headline", f"{character.name} Build Analysis"),
-            summary=parsed.get("summary", ""),
-            strengths=parsed.get("strengths", []),
-            improvements=parsed.get("improvements", []),
-            recommendedNextFarm=parsed.get("recommendedNextFarm", "Artifact Strongbox"),
-            dimensions=[BuildDimensionScore(**d) for d in parsed.get("dimensions", [])],
-            poweredBy="gemini-3.8-flash",
-        )
-        await cache.set(cache_key, result, ttl_seconds=ADVISOR_TTL)
-        return result
-    except Exception as exc:
-        logger.warning(f"Gemini advisor fallback triggered: {exc}")
-        return _deterministic_advisor(character, showcase, role, req.tone)
+    prompt_context = {
+        "character": character.name,
+        "vision": character.vision,
+        "weaponType": character.weapon,
+        "targetRole": role,
+        "tone": req.tone,
+        "curatedGuide": character.builds[0].model_dump() if character.builds else None,
+        "playerShowcase": showcase.model_dump() if showcase else None,
+    }
+    prompt = (
+        "You are the Irminsul Archive Scholar, a calm, precise Genshin Impact theorycrafter.\n"
+        "Analyze the character build data below and return ONLY valid JSON matching this schema:\n"
+        "{\n"
+        '  "overallGrade": "S|A|B|C",\n'
+        '  "headline": "concise title",\n'
+        '  "summary": "2-3 sentence calm, actionable assessment",\n'
+        '  "strengths": ["point 1", "point 2"],\n'
+        '  "improvements": ["point 1", "point 2"],\n'
+        '  "recommendedNextFarm": "specific domain or boss",\n'
+        '  "dimensions": [\n'
+        '    {"label": "Weapon Fit", "score": 0-100},\n'
+        '    {"label": "Artifact CV", "score": 0-100},\n'
+        '    {"label": "Talents", "score": 0-100},\n'
+        '    {"label": "ER Balance", "score": 0-100},\n'
+        '    {"label": "Team Synergy", "score": 0-100}\n'
+        "  ]\n"
+        "}\n"
+        f"Data:\n{json.dumps(prompt_context, default=str)[:4500]}"
+    )
+    parsed = await generate_gemini_json(prompt)
+    if parsed is not None:
+        try:
+            raw_dims = parsed.get("dimensions")
+            dims = [
+                BuildDimensionScore(**d)
+                for d in (raw_dims if isinstance(raw_dims, list) else [])
+                if isinstance(d, dict)
+            ]
+            raw_strengths = parsed.get("strengths")
+            raw_improvements = parsed.get("improvements")
+            result = BuildAdvisorResponse(
+                characterName=character.name,
+                overallGrade=str(parsed.get("overallGrade") or "A"),
+                headline=str(parsed.get("headline") or f"{character.name} Build Analysis"),
+                summary=str(parsed.get("summary") or ""),
+                strengths=[str(x) for x in raw_strengths] if isinstance(raw_strengths, list) else [],
+                improvements=[str(x) for x in raw_improvements] if isinstance(raw_improvements, list) else [],
+                recommendedNextFarm=str(parsed.get("recommendedNextFarm") or "Artifact Strongbox"),
+                dimensions=dims,
+                poweredBy=GEMINI_MODEL_ID,
+            )
+            await cache.set(cache_key, result, ttl_seconds=ADVISOR_TTL)
+            return result
+        except Exception as exc:
+            logger.warning("Gemini advisor response validation failed: %s", exc)
+
+    return _deterministic_advisor(character, showcase, role, req.tone)

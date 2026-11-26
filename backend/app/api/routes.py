@@ -131,7 +131,10 @@ async def database_weapons():
 @router.get("/database/weapons/{weapon_id}", response_model=WeaponDetailResponse)
 async def database_weapon_detail(weapon_id: int):
     """Return detailed passive and lore for a weapon."""
-    return await get_database_weapon_detail(weapon_id)
+    detail = await get_database_weapon_detail(weapon_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail=f"Weapon '{weapon_id}' not found.")
+    return detail
 
 
 @router.get("/database/artifacts", response_model=list[ArtifactSetItem])
