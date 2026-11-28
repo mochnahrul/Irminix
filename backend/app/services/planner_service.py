@@ -53,20 +53,14 @@ def _icon_url(icon_name: str) -> str:
 
 
 async def _fetch_yatta_json(path: str, ttl: int) -> dict[str, Any]:
-    cache_key = f"irminsul:yatta:raw:{path}"
-    cached = await cache.get(cache_key)
-    if cached is not None:
-        return cached
-    try:
-        client = get_http_client()
-        res = await client.get(f"{settings.GENSHIN_API_BASE}/{path}")
-        if res.status_code == 200:
-            data = res.json().get("data", {}) or {}
-            await cache.set(cache_key, data, ttl_seconds=ttl)
-            return data
-    except Exception as exc:
-        logger.warning(f"Failed to fetch Yatta '{path}': {exc}")
-    return {}
+    from app.core.constants import fetch_yatta_json
+
+    data = await fetch_yatta_json(
+        f"irminsul:yatta:raw:{path}",
+        f"{settings.GENSHIN_API_BASE}/{path}",
+        ttl_seconds=ttl,
+    )
+    return data if isinstance(data, dict) else {}
 
 
 async def _get_character_material_map() -> dict[int, list[CharacterSummary]]:
@@ -95,15 +89,21 @@ async def _build_character_material_map(cache_key: str) -> dict[int, list[Charac
         if name:
             by_slug[slugify_name(name)] = str(av_id)
 
-    sem = asyncio.Semaphore(8)
+    sem = asyncio.Semaphore(3)
     mat_map: dict[int, list[CharacterSummary]] = {}
 
     async def load_char_mats(ch: CharacterSummary) -> None:
+        from app.core.constants import fetch_yatta_json
+
         av_id = by_slug.get(slugify_name(ch.id)) or by_slug.get(slugify_name(ch.name))
         if not av_id:
             return
         async with sem:
-            av_data = await _fetch_yatta_json(f"avatar/{av_id}", MATERIAL_PLAN_TTL)
+            av_data = await fetch_yatta_json(
+                f"irminsul:yatta:detail:{av_id}",
+                f"{settings.GENSHIN_API_BASE}/avatar/{av_id}",
+                ttl_seconds=MATERIAL_PLAN_TTL,
+            )
         asc = av_data.get("ascension", {}) if isinstance(av_data, dict) else {}
         if not isinstance(asc, dict):
             return

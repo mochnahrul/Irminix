@@ -66,16 +66,26 @@ async def fetch_yatta_json(
         if cached is not None:
             return cached
 
-        try:
-            client = get_http_client()
-            res = await client.get(url)
-            if res.status_code == 200:
-                payload = res.json()
-                data = payload.get("data") if isinstance(payload, dict) else None
-                if isinstance(data, dict) and data:
-                    await cache.set(cache_key, data, ttl_seconds=ttl_seconds)
-                    return data
-        except Exception as exc:
-            logger.warning("Yatta fetch failed for %s: %s", url, exc)
+        client = get_http_client()
+        for attempt in range(2):
+            try:
+                res = await client.get(url)
+                if res.status_code == 200:
+                    payload = res.json()
+                    data = payload.get("data") if isinstance(payload, dict) else None
+                    if isinstance(data, dict) and data:
+                        await cache.set(cache_key, data, ttl_seconds=ttl_seconds)
+                        return data
+                    break
+                if res.status_code in (429, 502, 503, 504) and attempt == 0:
+                    await asyncio.sleep(0.4)
+                    continue
+                logger.warning("Yatta fetch returned HTTP %s for %s", res.status_code, url)
+                break
+            except Exception as exc:
+                if attempt == 0:
+                    await asyncio.sleep(0.4)
+                    continue
+                logger.warning("Yatta fetch failed for %s: %s(%s)", url, type(exc).__name__, exc)
 
     return None

@@ -149,12 +149,13 @@ async def get_character_detail(identifier: str) -> Optional[CharacterDetail]:
         else None
     )
 
-    if not live_data:
+    if not live_data and not yatta_summary:
         return None
 
-    vision_name = ELEMENT_MAP.get(live_data.get("element", ""), "Unknown")
-    weapon_name = WEAPON_TYPE_MAP.get(live_data.get("weaponType", ""), "Sword")
-    region_name = REGION_MAP.get(str(live_data.get("region", "")).upper(), "Teyvat")
+    meta = live_data or yatta_summary or {}
+    vision_name = ELEMENT_MAP.get(meta.get("element", ""), "Unknown")
+    weapon_name = WEAPON_TYPE_MAP.get(meta.get("weaponType", ""), "Sword")
+    region_name = REGION_MAP.get(str(meta.get("region", "")).upper(), "Teyvat")
     builds = community_builds or [
         CharacterBuildGuide(
             role="RECOMMENDED GENERAL BUILD",
@@ -171,13 +172,13 @@ async def get_character_detail(identifier: str) -> Optional[CharacterDetail]:
     ]
     summary_kwargs = dict(
         id=target_slug,
-        name=live_data.get("name", identifier),
+        name=meta.get("name", identifier),
         weapon=weapon_name,
         region=region_name,
-        rarity=safe_int(live_data.get("rank"), 5),
+        rarity=safe_int(meta.get("rank"), 5),
         vision=vision_name,
         visionImage="",
-        image=yatta_icon_url(live_data.get("icon")),
+        image=yatta_icon_url(meta.get("icon")),
         hasCuratedBuild=community_builds is not None,
         roles=[b.role for b in builds],
         source="helper-team+yatta" if community_builds else "yatta-live",
@@ -185,15 +186,15 @@ async def get_character_detail(identifier: str) -> Optional[CharacterDetail]:
 
     talents: list[dict[str, str]] = []
     constellations: list[dict[str, str]] = []
-    fetter = live_data.get("fetter") or {}
-    birthday_arr = live_data.get("birthday")
+    fetter = (live_data or {}).get("fetter") or {}
+    birthday_arr = (live_data or {}).get("birthday")
     birthday_str = (
         f"{birthday_arr[0]}/{birthday_arr[1]}"
         if isinstance(birthday_arr, list) and len(birthday_arr) == 2
         else None
     )
 
-    for t in (live_data.get("talent") or {}).values():
+    for t in ((live_data or {}).get("talent") or {}).values():
         if isinstance(t, dict) and t.get("name"):
             talents.append({
                 "name": t.get("name", ""),
@@ -201,7 +202,7 @@ async def get_character_detail(identifier: str) -> Optional[CharacterDetail]:
                 "description": clean_hoyo_text(t.get("description", "")),
                 "icon": yatta_icon_url(t.get("icon")),
             })
-    for c in (live_data.get("constellation") or {}).values():
+    for c in ((live_data or {}).get("constellation") or {}).values():
         if isinstance(c, dict) and c.get("name"):
             constellations.append({
                 "name": c.get("name", ""),
@@ -224,6 +225,6 @@ async def get_character_detail(identifier: str) -> Optional[CharacterDetail]:
         talents=talents,
         constellations=constellations,
     )
-    ttl = CATALOG_TTL if detail.hasCuratedBuild else 30
+    ttl = CATALOG_TTL if (detail.hasCuratedBuild and live_data) else 30
     await cache.set(detail_cache_key, detail, ttl_seconds=ttl)
     return detail

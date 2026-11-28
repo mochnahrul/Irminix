@@ -1,6 +1,7 @@
 import asyncio
 from typing import Optional
 import httpx
+from app.core.config import settings
 
 _client: Optional[httpx.AsyncClient] = None
 _client_loop: Optional[asyncio.AbstractEventLoop] = None
@@ -18,8 +19,12 @@ def get_http_client() -> httpx.AsyncClient:
         if _client is not None and not _client.is_closed and _client_loop is not None and _client_loop.is_running():
             _client_loop.create_task(_client.aclose())
         _client = httpx.AsyncClient(
-            timeout=httpx.Timeout(12.0, connect=5.0),
-            limits=httpx.Limits(max_connections=40, max_keepalive_connections=20),
+            timeout=httpx.Timeout(15.0, connect=8.0),
+            limits=httpx.Limits(max_connections=30, max_keepalive_connections=15),
+            headers={
+                "User-Agent": settings.ENKA_USER_AGENT,
+                "Accept": "application/json",
+            },
             follow_redirects=True,
         )
         _client_loop = loop
