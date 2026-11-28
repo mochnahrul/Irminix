@@ -218,10 +218,11 @@ async def generate_build_advice(
     from app.core.gemini import GEMINI_MODEL_ID, generate_gemini_json
 
     role = req.role or (character.builds[0].role if character.builds else "DPS")
+    art_sets_sig = ",".join(sorted({a.setName for a in showcase.artifacts if a.setName})) if showcase else ""
     showcase_sig = (
         f"{showcase.level}:{showcase.weapon.name if showcase.weapon else 'none'}:"
-        f"{showcase.weapon.level if showcase.weapon else 0}:{len(showcase.artifacts)}:"
-        f"{sum(showcase.talentLevels[:3])}"
+        f"{showcase.weapon.level if showcase.weapon else 0}:{showcase.critValue}:"
+        f"{art_sets_sig}:{sum(showcase.talentLevels[:3])}"
         if showcase
         else "no_showcase"
     )
@@ -236,14 +237,30 @@ async def generate_build_advice(
         await cache.set(cache_key, result, ttl_seconds=ADVISOR_TTL)
         return result
 
+    top_guide = character.builds[0] if character.builds else None
+    compact_guide = (
+        {
+            "role": top_guide.role,
+            "topWeapons": [w.name for w in top_guide.weapons[:5]],
+            "topArtifacts": [
+                " + ".join(p.name for p in a.mix) if a.mix else a.name
+                for a in top_guide.artifacts[:4]
+            ],
+            "mainStats": top_guide.mainStats,
+            "subStats": top_guide.subStats,
+            "talentPriority": top_guide.talentPriority,
+        }
+        if top_guide
+        else None
+    )
     prompt_context = {
         "character": character.name,
         "vision": character.vision,
         "weaponType": character.weapon,
         "targetRole": role,
         "tone": req.tone,
-        "curatedGuide": character.builds[0].model_dump() if character.builds else None,
         "playerShowcase": showcase.model_dump() if showcase else None,
+        "curatedGuide": compact_guide,
     }
     prompt = (
         "You are the Irminsul Archive Scholar, a calm, precise Genshin Impact theorycrafter.\n"

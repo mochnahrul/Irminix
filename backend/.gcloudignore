@@ -1,0 +1,13 @@
+# Ignore local virtualenvs, secrets, and caches during gcloud source upload
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+.vscode/
+.pytest_cache/

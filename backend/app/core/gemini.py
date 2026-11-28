@@ -11,6 +11,19 @@ logger = logging.getLogger(__name__)
 
 GEMINI_MODEL_ID = "gemini-2.5-flash"
 
+_gemini_client: Optional[genai.Client] = None
+_gemini_api_key: Optional[str] = None
+
+
+def _get_gemini_client() -> Optional[genai.Client]:
+    global _gemini_client, _gemini_api_key
+    if not settings.GEMINI_API_KEY:
+        return None
+    if _gemini_client is None or _gemini_api_key != settings.GEMINI_API_KEY:
+        _gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        _gemini_api_key = settings.GEMINI_API_KEY
+    return _gemini_client
+
 
 async def generate_gemini_json(
     prompt: str,
@@ -21,11 +34,11 @@ async def generate_gemini_json(
     Returns None when GEMINI_API_KEY is unset, the request fails/times out,
     or the response is not a valid JSON object.
     """
-    if not settings.GEMINI_API_KEY:
+    client = _get_gemini_client()
+    if client is None:
         return None
 
     try:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
         response = await asyncio.wait_for(
             client.aio.models.generate_content(
                 model=GEMINI_MODEL_ID,

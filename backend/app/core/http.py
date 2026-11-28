@@ -19,8 +19,8 @@ def get_http_client() -> httpx.AsyncClient:
         if _client is not None and not _client.is_closed and _client_loop is not None and _client_loop.is_running():
             _client_loop.create_task(_client.aclose())
         _client = httpx.AsyncClient(
-            timeout=httpx.Timeout(15.0, connect=8.0),
-            limits=httpx.Limits(max_connections=30, max_keepalive_connections=15),
+            timeout=httpx.Timeout(15.0, connect=8.0, pool=30.0),
+            limits=httpx.Limits(max_connections=100, max_keepalive_connections=30),
             headers={
                 "User-Agent": settings.ENKA_USER_AGENT,
                 "Accept": "application/json",

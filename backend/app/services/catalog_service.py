@@ -225,6 +225,6 @@ async def get_character_detail(identifier: str) -> Optional[CharacterDetail]:
         talents=talents,
         constellations=constellations,
     )
-    ttl = CATALOG_TTL if (detail.hasCuratedBuild and live_data) else 30
+    ttl = CATALOG_TTL if live_data else 30
     await cache.set(detail_cache_key, detail, ttl_seconds=ttl)
     return detail

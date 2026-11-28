@@ -471,6 +471,12 @@ export function UidShowcaseView({
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-[#E8C5BC] bg-[#FBF0ED] px-4 py-2.5 text-xs text-[#9A3B26]">
+          {error}
+        </div>
+      )}
+
       {/* Profile Sub-Tabs */}
       <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1 w-fit shadow-card">
         <button

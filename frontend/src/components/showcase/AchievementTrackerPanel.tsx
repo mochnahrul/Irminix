@@ -43,6 +43,7 @@ export function AchievementTrackerPanel({
 
   const [guides, setGuides] = useState<Record<number, AchievementGuideResponse>>({});
   const [loadingGuideId, setLoadingGuideId] = useState<number | null>(null);
+  const [guideError, setGuideError] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -78,7 +79,11 @@ export function AchievementTrackerPanel({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
+      } catch {
+        // Ignore storage quota/security errors
+      }
       return next;
     });
   };
@@ -86,6 +91,7 @@ export function AchievementTrackerPanel({
   const handleLoadGuide = async (item: AchievementItem) => {
     if (guides[item.id]) return;
     setLoadingGuideId(item.id);
+    setGuideError(null);
     try {
       const guide = await fetchAchievementGuide({
         title: item.title,
@@ -94,7 +100,7 @@ export function AchievementTrackerPanel({
       });
       setGuides((prev) => ({ ...prev, [item.id]: guide }));
     } catch {
-      setError("Failed to generate achievement guide. Please try again.");
+      setGuideError(`Failed to generate guide for "${item.title}". Please try again.`);
     } finally {
       setLoadingGuideId(null);
     }
@@ -136,6 +142,18 @@ export function AchievementTrackerPanel({
 
   return (
     <div className="space-y-5">
+      {guideError && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E8C5BC] bg-[#FBF0ED] px-4 py-2.5 text-xs text-[#9A3B26]">
+          <span>{guideError}</span>
+          <button
+            type="button"
+            onClick={() => setGuideError(null)}
+            className="shrink-0 font-medium underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* Summary & Sync Note */}
       <div className="rounded-2xl border border-border bg-surface p-5 shadow-card">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">

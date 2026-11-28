@@ -28,17 +28,30 @@ function IrminsulAppContent() {
   } | null>(null);
   const [characters, setCharacters] = useState<CharacterSummary[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCharacters()
-      .then(setCharacters)
-      .catch(() => setCharacters([]))
+      .then((data) => {
+        setCharacters(data);
+        setCatalogError(null);
+      })
+      .catch((err) => {
+        setCharacters([]);
+        setCatalogError(err instanceof Error ? err.message : "Failed to load character catalog.");
+      })
       .finally(() => setLoadingCatalog(false));
   }, []);
 
   if (!uid && !isGuest) {
     return <UidLoginView />;
   }
+
+  const handleTabChange = (tab: ActiveTab) => {
+    if (tab !== "planner") setPlannerTarget(null);
+    if (tab !== "advisor") setAdvisorTarget(null);
+    setActiveTab(tab);
+  };
 
   const openAdvisorFor = (characterName: string, role?: string) => {
     setAdvisorTarget({ name: characterName, role });
@@ -54,9 +67,14 @@ function IrminsulAppContent() {
   return (
     <AppShell
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={handleTabChange}
       onResetCharacter={() => setSelectedCharacterId(null)}
     >
+      {catalogError && activeTab === "codex" && !selectedCharacterId && (
+        <div className="mb-4 rounded-xl border border-[#E8C5BC] bg-[#FBF0ED] px-4 py-3 text-xs text-[#9A3B26]">
+          {catalogError}
+        </div>
+      )}
       {activeTab === "codex" &&
         (selectedCharacterId ? (
           <CharacterBuildDetailView

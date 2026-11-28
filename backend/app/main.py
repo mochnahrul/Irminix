@@ -10,16 +10,14 @@ from app.core.cache import cache
 from app.core.config import settings
 from app.core.http import close_http_client
 from app.services.catalog_service import get_all_characters
-from app.services.database_service import _get_gear_recommendations
 
 logger = logging.getLogger(__name__)
 
 
 async def _warm_startup_caches() -> None:
-    """Warm slow upstream indexes in background without bursting Yatta per-avatar endpoints."""
+    """Warm lightweight character catalog in background without saturating connection pool."""
     try:
         await get_all_characters()
-        await _get_gear_recommendations()
     except asyncio.CancelledError:
         pass
     except Exception as exc:

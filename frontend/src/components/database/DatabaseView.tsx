@@ -164,6 +164,7 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponDetailResponse | null>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactSetItem | null>(null);
   const [loadingWeaponDetail, setLoadingWeaponDetail] = useState(false);
+  const [weaponDetailError, setWeaponDetailError] = useState<string | null>(null);
   const [weaponRefineIdx, setWeaponRefineIdx] = useState(0);
   const [retryTick, setRetryTick] = useState(0);
   const weaponReqRef = useRef(0);
@@ -241,6 +242,7 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
   const handleOpenWeapon = async (w: WeaponItem) => {
     const reqId = ++weaponReqRef.current;
     setLoadingWeaponDetail(true);
+    setWeaponDetailError(null);
     setWeaponRefineIdx(0);
     setSelectedWeapon({ ...w, description: "" });
     try {
@@ -250,7 +252,7 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
       }
     } catch (err) {
       if (weaponReqRef.current === reqId) {
-        setError(err instanceof Error ? err.message : "Failed to load weapon detail.");
+        setWeaponDetailError(err instanceof Error ? err.message : "Failed to load weapon detail.");
       }
     } finally {
       if (weaponReqRef.current === reqId) {
@@ -714,6 +716,10 @@ export function DatabaseView({ onSelectCharacter }: DatabaseViewProps) {
 
             {loadingWeaponDetail ? (
               <p className="mt-4 text-xs text-ink-dim">Loading weapon passive...</p>
+            ) : weaponDetailError ? (
+              <div className="mt-4 rounded-xl border border-[#E8C5BC] bg-[#FBF0ED] p-3 text-xs text-[#9A3B26]">
+                {weaponDetailError}
+              </div>
             ) : (
               <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
                 {(selectedWeapon.baseAtk || selectedWeapon.subStatValue) && (

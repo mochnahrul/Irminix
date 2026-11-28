@@ -195,7 +195,7 @@ async def _build_gear_recommendations(
     # Index live Helper Team builds (matches Character Build Detail view 1:1)
     try:
         helper_idx = await get_helper_team_index()
-        sem = asyncio.Semaphore(6)
+        sem = asyncio.Semaphore(3)
 
         async def load_helper_char(slug: str) -> None:
             async with sem:

@@ -83,10 +83,16 @@ export function FarmingPlannerView({
   useEffect(() => {
     if (initialCharacterId) {
       setCalcCharId(initialCharacterId);
-    } else if (characters.length > 0 && !characters.some((c) => c.id === calcCharId)) {
-      setCalcCharId(characters[0].id);
     }
-  }, [initialCharacterId, characters, calcCharId]);
+  }, [initialCharacterId]);
+
+  useEffect(() => {
+    if (characters.length > 0) {
+      setCalcCharId((prev) =>
+        prev && characters.some((c) => c.id === prev) ? prev : characters[0].id
+      );
+    }
+  }, [characters]);
 
   useEffect(() => {
     let cancelled = false;

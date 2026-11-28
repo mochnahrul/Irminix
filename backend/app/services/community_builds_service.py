@@ -99,6 +99,9 @@ def _format_stat_token(token: Any) -> str:
     return STAT_DISPLAY_MAP.get(key, _humanize_slug(key))
 
 
+_TREE_LOCK = asyncio.Lock()
+
+
 async def get_helper_team_index() -> dict[str, dict[str, Any]]:
     """
     Fetch and cache the character -> {element, rarity, roles} index
@@ -108,39 +111,44 @@ async def get_helper_team_index() -> dict[str, dict[str, Any]]:
     if cached is not None:
         return cached
 
-    index: dict[str, dict[str, Any]] = {}
-    try:
-        client = get_http_client()
-        res = await client.get(HELPER_TREE_URL)
-        if res.status_code != 200:
-            logger.warning(f"GitHub tree fetch returned {res.status_code}")
+    async with _TREE_LOCK:
+        cached = await cache.get(TREE_CACHE_KEY)
+        if cached is not None:
+            return cached
+
+        index: dict[str, dict[str, Any]] = {}
+        try:
+            client = get_http_client()
+            res = await client.get(HELPER_TREE_URL)
+            if res.status_code != 200:
+                logger.warning(f"GitHub tree fetch returned {res.status_code}")
+                return {}
+            tree = res.json().get("tree", [])
+        except Exception as exc:
+            logger.warning(f"Unable to reach GitHub Helper Team repo: {exc}")
             return {}
-        tree = res.json().get("tree", [])
-    except Exception as exc:
-        logger.warning(f"Unable to reach GitHub Helper Team repo: {exc}")
-        return {}
 
-    for node in tree:
-        path: str = node.get("path", "")
-        if not path.startswith("src/content/") or not path.endswith("/weapons.json"):
-            continue
-        # Expected: src/content/{element}/{rarity}/{slug}/{role}/weapons.json
-        parts = path.split("/")
-        if len(parts) != 7:
-            continue
-        _, _, element, rarity, slug, role, _ = parts
-        if element == "site":
-            continue
-        entry = index.setdefault(
-            slug,
-            {"element": element, "rarity": rarity, "roles": []},
-        )
-        if role not in entry["roles"]:
-            entry["roles"].append(role)
+        for node in tree:
+            path: str = node.get("path", "")
+            if not path.startswith("src/content/") or not path.endswith("/weapons.json"):
+                continue
+            # Expected: src/content/{element}/{rarity}/{slug}/{role}/weapons.json
+            parts = path.split("/")
+            if len(parts) != 7:
+                continue
+            _, _, element, rarity, slug, role, _ = parts
+            if element == "site":
+                continue
+            entry = index.setdefault(
+                slug,
+                {"element": element, "rarity": rarity, "roles": []},
+            )
+            if role not in entry["roles"]:
+                entry["roles"].append(role)
 
-    if index:
-        await cache.set(TREE_CACHE_KEY, index, ttl_seconds=BUILD_TTL)
-    return index
+        if index:
+            await cache.set(TREE_CACHE_KEY, index, ttl_seconds=BUILD_TTL)
+        return index
 
 
 async def _fetch_role_json(
@@ -155,7 +163,7 @@ async def _fetch_role_json(
             if res.status_code == 200:
                 return res.json()
         except Exception as exc:
-            logger.debug("Helper Team fetch failed for %s/%s: %s", base, filename, exc)
+            logger.warning("Helper Team fetch failed for %s/%s: %s(%s)", base, filename, type(exc).__name__, exc)
     return {}
 
 
@@ -227,7 +235,9 @@ async def _fetch_role_build(
             if not g_items:
                 continue
 
-            if all(int(it.get("pieces", 4)) == 4 for it in g_items):
+            from app.core.constants import safe_int
+
+            if all(safe_int(it.get("pieces"), 4) == 4 for it in g_items):
                 for it in g_items:
                     artifacts.append(
                         BuildArtifactOption(
@@ -243,7 +253,7 @@ async def _fetch_role_build(
                     BuildArtifactPiece(
                         name=_humanize_slug(it["name"]),
                         rarity=5,
-                        piece=int(it.get("pieces", 2)),
+                        piece=safe_int(it.get("pieces"), 2),
                         image="",
                     )
                     for it in g_items

@@ -60,16 +60,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     };
   }, [uid]);
 
+  const activeUidRef = useRef<string | null>(uid);
+  activeUidRef.current = uid;
+
   const connectUid = async (rawUid: string) => {
     setError(null);
     setIsConnecting(true);
     try {
       const data = await apiConnectUid(rawUid.trim());
+      loadedUidRef.current = data.uid;
       setProfile(data);
       setUid(data.uid);
       setIsGuest(false);
-      localStorage.setItem(UID_STORAGE_KEY, data.uid);
-      localStorage.removeItem(GUEST_STORAGE_KEY);
+      try {
+        localStorage.setItem(UID_STORAGE_KEY, data.uid);
+        localStorage.removeItem(GUEST_STORAGE_KEY);
+      } catch {
+        // Ignore storage errors in restricted browsing modes
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to connect UID.";
       setError(message);
@@ -80,32 +88,48 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (!uid) return;
+    const targetUid = uid;
+    if (!targetUid) return;
     setIsConnecting(true);
     setError(null);
     try {
-      const data = await fetchProfile(uid, true);
-      setProfile(data);
+      const data = await fetchProfile(targetUid, true);
+      if (activeUidRef.current === targetUid) {
+        setProfile(data);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to refresh showcase.");
+      if (activeUidRef.current === targetUid) {
+        setError(err instanceof Error ? err.message : "Failed to refresh showcase.");
+      }
     } finally {
-      setIsConnecting(false);
+      if (activeUidRef.current === targetUid) {
+        setIsConnecting(false);
+      }
     }
   };
 
   const enterGuestMode = () => {
     setError(null);
     setIsGuest(true);
-    localStorage.setItem(GUEST_STORAGE_KEY, "true");
+    try {
+      localStorage.setItem(GUEST_STORAGE_KEY, "true");
+    } catch {
+      // Ignore storage errors
+    }
   };
 
   const disconnect = () => {
+    loadedUidRef.current = null;
     setProfile(null);
     setUid(null);
     setIsGuest(false);
     setError(null);
-    localStorage.removeItem(UID_STORAGE_KEY);
-    localStorage.removeItem(GUEST_STORAGE_KEY);
+    try {
+      localStorage.removeItem(UID_STORAGE_KEY);
+      localStorage.removeItem(GUEST_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors
+    }
   };
 
   return (

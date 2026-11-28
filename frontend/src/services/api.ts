@@ -40,9 +40,12 @@ function setCached<T>(key: string, data: T): void {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const defaultHeaders: Record<string, string> = init?.body
+    ? { "Content-Type": "application/json" }
+    : {};
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
     ...init,
+    headers: { ...defaultHeaders, ...(init?.headers || {}) },
   });
 
   if (!res.ok) {

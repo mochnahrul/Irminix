@@ -113,16 +113,16 @@ async def _get_metadata_stores() -> tuple[dict[str, Any], dict[str, str], dict[s
         safe_get(client, f"{settings.GENSHIN_API_BASE}/reliquary"),
     )
 
-    if c_res:
+    if isinstance(c_res, dict):
         chars_data = c_res
-    if l_res:
-        loc_en = l_res.get("en", {})
-    if ya_res:
-        yatta_avatars = ya_res.get("data", {}).get("items", {})
-    if yw_res:
-        yatta_weapons = yw_res.get("data", {}).get("items", {})
-    if yr_res:
-        yatta_relics = yr_res.get("data", {}).get("items", {})
+    if isinstance(l_res, dict):
+        loc_en = l_res.get("en") or {}
+    if isinstance(ya_res, dict):
+        yatta_avatars = (ya_res.get("data") or {}).get("items") or {}
+    if isinstance(yw_res, dict):
+        yatta_weapons = (yw_res.get("data") or {}).get("items") or {}
+    if isinstance(yr_res, dict):
+        yatta_relics = (yr_res.get("data") or {}).get("items") or {}
 
     stores = (chars_data, loc_en, yatta_avatars, yatta_weapons, yatta_relics)
     if any(stores):

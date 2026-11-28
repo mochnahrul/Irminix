@@ -154,6 +154,8 @@ export function CharacterBuildDetailView({
     setError(null);
     setActiveBuildIdx(0);
     setKitTab("talents");
+    setWeaponRefineMap({});
+    setHoveredKey(null);
     fetchCharacterDetail(characterId)
       .then((res) => {
         if (!cancelled) setDetail(res);
@@ -1238,7 +1240,8 @@ export function CharacterBuildDetailView({
                           onClick={(e) => e.stopPropagation()}
                           className={cn(
                             "fixed inset-x-4 bottom-4 z-40 sm:absolute sm:inset-x-auto sm:bottom-full sm:top-auto sm:w-[400px] sm:pb-1.5",
-                            idx % 3 === 2 ? "sm:left-auto sm:right-0" : "sm:left-0"
+                            idx % 2 === 1 ? "sm:left-auto sm:right-0" : "sm:left-0",
+                            idx % 3 === 2 ? "lg:left-auto lg:right-0" : "lg:left-0 lg:right-auto"
                           )}
                         >
                           <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-hover">

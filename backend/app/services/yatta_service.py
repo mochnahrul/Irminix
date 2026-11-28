@@ -215,14 +215,22 @@ async def enrich_builds_with_yatta(builds: list[CharacterBuildGuide]) -> list[Ch
         for w in b.weapons:
             key = _normalize_lookup_key(w.name)
             match = weapons_idx.get(key)
-            if match and "id" in match:
-                weapon_ids_to_fetch[key] = int(match["id"])
+            if match and match.get("id") is not None:
+                wid = safe_int(match.get("id"), -1)
+                if wid >= 0:
+                    weapon_ids_to_fetch[key] = wid
 
     weapon_details: dict[int, dict[str, Any]] = {}
     if weapon_ids_to_fetch:
         client = get_http_client()
+        sem = asyncio.Semaphore(4)
+
+        async def _guarded_weapon_detail(wid: int) -> Optional[dict[str, Any]]:
+            async with sem:
+                return await _get_weapon_detail(client, wid)
+
         results = await asyncio.gather(
-            *[_get_weapon_detail(client, wid) for wid in weapon_ids_to_fetch.values()]
+            *[_guarded_weapon_detail(wid) for wid in weapon_ids_to_fetch.values()]
         )
         for wid, detail in zip(weapon_ids_to_fetch.values(), results):
             if detail:

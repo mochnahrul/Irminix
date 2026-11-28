@@ -253,37 +253,40 @@ async def get_character_material_plan(identifier: str) -> Optional[CharacterMate
         out.sort(key=lambda x: (-x.rank, x.name))
         return out
 
+    from app.core.constants import safe_int
+
     ascension_stages: list[AscensionStagePlan] = []
-    promotes = av_data.get("upgrade", {}).get("promote", []) or []
+    promotes = (av_data.get("upgrade") or {}).get("promote") or []
     for stage in promotes:
-        plevel = int(stage.get("promoteLevel", 0) or 0)
+        if not isinstance(stage, dict):
+            continue
+        plevel = safe_int(stage.get("promoteLevel"), 0)
         if plevel <= 0:
             continue
         ascension_stages.append(
             AscensionStagePlan(
                 promoteLevel=plevel,
-                unlockMaxLevel=int(stage.get("unlockMaxLevel", 20) or 20),
-                coinCost=int(stage.get("coinCost", 0) or 0),
-                items=resolve_costs(stage.get("costItems", {})),
+                unlockMaxLevel=safe_int(stage.get("unlockMaxLevel"), 20),
+                coinCost=safe_int(stage.get("coinCost"), 0),
+                items=resolve_costs(stage.get("costItems") or {}),
             )
         )
 
     talent_stages: list[TalentStagePlan] = []
-    talents_dict = av_data.get("talent", {}) or {}
+    talents_dict = av_data.get("talent") or {}
     first_talent = next(iter(talents_dict.values()), {}) if isinstance(talents_dict, dict) else {}
-    t_promote = first_talent.get("promote", {}) if isinstance(first_talent, dict) else {}
+    t_promote = first_talent.get("promote") or {} if isinstance(first_talent, dict) else {}
     for lvl_str, stage in t_promote.items():
-        try:
-            lvl = int(lvl_str)
-        except (TypeError, ValueError):
+        if not isinstance(stage, dict):
             continue
+        lvl = safe_int(lvl_str, -1)
         if lvl < 2 or lvl > 10:
             continue
         talent_stages.append(
             TalentStagePlan(
                 level=lvl,
-                coinCost=int(stage.get("coinCost", 0) or 0),
-                items=resolve_costs(stage.get("costItems", {})),
+                coinCost=safe_int(stage.get("coinCost"), 0),
+                items=resolve_costs(stage.get("costItems") or {}),
             )
         )
     talent_stages.sort(key=lambda s: s.level)

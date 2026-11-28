@@ -49,10 +49,16 @@ export function AiBuildAdvisorView({
   useEffect(() => {
     if (initialCharacter) {
       setSelectedName(initialCharacter);
-    } else if (characters.length > 0 && !characters.some((c) => c.name === selectedName)) {
-      setSelectedName(characters[0].name);
     }
-  }, [initialCharacter, characters, selectedName]);
+  }, [initialCharacter]);
+
+  useEffect(() => {
+    if (characters.length > 0) {
+      setSelectedName((prev) =>
+        prev && characters.some((c) => c.name === prev) ? prev : characters[0].name
+      );
+    }
+  }, [characters]);
 
   const quickPickNames = useMemo(() => {
     if (profile && profile.showcaseCharacters.length > 0) {
